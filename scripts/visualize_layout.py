@@ -845,6 +845,7 @@ def draw_content_boxes_pixel(
     
     cols = page_layout.cols
     rows = page_layout.rows
+    grid_cells = page_layout.grid_cells
     
     # 마스터 요소 영역 계산 (제외할 영역)
     header_height = int(img_height * 0.08)  # 상단 영역 축소: 헤더 제외 최소화
@@ -854,7 +855,22 @@ def draw_content_boxes_pixel(
     content_top = header_height
     content_bottom = img_height - footer_height
     
-    if cols == 1:
+    # 레이아웃 패턴 판단
+    # 2x2 레이아웃 + 하단 colspan=2인 경우 (상단 2개 + 하단 1개)
+    is_2x2_with_colspan = (
+        rows == 2 and cols == 2 and 
+        len(grid_cells) == 3 and
+        any(cell.colspan == 2 for cell in grid_cells)
+    )
+    
+    if is_2x2_with_colspan:
+        # 2x2 레이아웃 (상단 2개 + 하단 colspan=2)
+        _draw_2x2_colspan_layout(
+            draw, image, grid_cells, slide_width, slide_height,
+            img_width, img_height, content_top, content_bottom,
+            padding, line_width, box_color, use_ssim
+        )
+    elif cols == 1:
         # 1x1 레이아웃: 전체 영역에서 컨텐츠 기반 박스 계산
         region = (padding, content_top, img_width - padding, content_bottom)
         
@@ -1045,6 +1061,292 @@ def draw_content_boxes_pixel(
             _draw_debug_corners(draw, right_adjusted, "R", font_size=12)
     
     return image
+
+
+def _draw_2x2_colspan_layout(
+    draw: ImageDraw.Draw,
+    image: Image.Image,
+    grid_cells: list,
+    slide_width: int,
+    slide_height: int,
+    img_width: int,
+    img_height: int,
+    content_top: int,
+    content_bottom: int,
+    padding: int,
+    line_width: int,
+    box_color: str,
+    use_ssim: bool
+) -> None:
+    """2x2 레이아웃 (상단 2개 + 하단 colspan=2) 박스 그리기
+    
+    Args:
+        grid_cells: GridCell 리스트 (상단좌, 상단우, 하단)
+    """
+    # RGB 이미지 준비
+    if image.mode != "RGB":
+        rgb_image = image.convert("RGB")
+    else:
+        rgb_image = image
+    pixels = np.array(rgb_image)
+    
+    content_threshold = 200
+    margin_from_content = line_width * 2 + 5
+    
+    # 스케일 팩터 계산
+    scale_x = img_width / slide_width
+    scale_y = img_height / slide_height
+    
+    # 셀 분류
+    top_left_cell = None
+    top_right_cell = None
+    bottom_cell = None
+    
+    for cell in grid_cells:
+        if cell.row == 0 and cell.col == 0:
+            top_left_cell = cell
+        elif cell.row == 0 and cell.col == 1:
+            top_right_cell = cell
+        elif cell.row == 1 and cell.colspan == 2:
+            bottom_cell = cell
+    
+    mid_x = img_width // 2
+    gap = 10
+    
+    # 그리드 기반 y 경계 (상단/하단 분리선 참고용)
+    if top_left_cell:
+        grid_mid_y = int((top_left_cell.top + top_left_cell.height) * scale_y)
+    else:
+        grid_mid_y = img_height // 2
+    
+    # 상단/하단 분리선 찾기: 중앙 영역에 콘텐츠가 시작되는 y를 찾음
+    # 좌측/우측이 분리된 영역 = 상단, 중앙에 걸친 콘텐츠 = 하단 colspan
+    center_x1 = mid_x - gap
+    center_x2 = mid_x + gap
+    
+    # y를 위에서 아래로 스캔하면서 중앙 영역에 콘텐츠가 있는 첫 번째 y 찾기
+    colspan_start_y = img_height - padding  # 기본값: 하단 끝
+    
+    for y in range(content_top, img_height - padding):
+        # 해당 y에서 중앙 영역의 콘텐츠 확인
+        center_row = pixels[y, center_x1:center_x2, :]
+        center_brightness = np.mean(center_row, axis=1)
+        center_dark = np.sum(center_brightness < content_threshold)
+        
+        # 동시에 좌측과 우측에도 콘텐츠가 있는지 확인 (colspan 판단)
+        left_row = pixels[y, padding:center_x1, :]
+        right_row = pixels[y, center_x2:img_width - padding, :]
+        left_dark = np.sum(np.mean(left_row, axis=1) < content_threshold)
+        right_dark = np.sum(np.mean(right_row, axis=1) < content_threshold)
+        
+        # 중앙에 콘텐츠가 있고, 좌우 어디에도 콘텐츠가 있으면 colspan 시작
+        if center_dark > 10 and (left_dark > 10 or right_dark > 10):
+            # 연속된 중앙 콘텐츠인지 확인 (노이즈 필터링)
+            continuous = True
+            for check_y in range(y, min(y + 20, img_height - padding)):
+                check_row = pixels[check_y, center_x1:center_x2, :]
+                check_dark = np.sum(np.mean(check_row, axis=1) < content_threshold)
+                if check_dark < 5:
+                    continuous = False
+                    break
+            
+            if continuous:
+                colspan_start_y = y
+                break
+    
+    # 상단 박스 하단 경계: colspan 시작점 - 여백
+    top_search_limit = colspan_start_y - margin_from_content
+    bottom_start_y = colspan_start_y
+    
+    print(f"  colspan 시작 y: {colspan_start_y}, 상단 박스 하단 한계: {top_search_limit}")
+    
+    # 상단 중간 경계 (좌/우 분리선)
+    if top_left_cell and top_right_cell:
+        
+        # 하단 영역(gap 이후)에서 콘텐츠의 x 분포 확인
+        # 중앙을 가로지르는 콘텐츠가 있으면 colspan으로 처리
+        bottom_region_start = bottom_start_y
+        bottom_pixels = pixels[bottom_region_start:img_height - padding, :, :]
+        
+        # 좌측 하단(x < mid_x - gap)과 우측 하단(x > mid_x + gap)의 콘텐츠 체크
+        left_bottom_region = bottom_pixels[:, padding:mid_x - gap, :]
+        right_bottom_region = bottom_pixels[:, mid_x + gap:img_width - padding, :]
+        center_bottom_region = bottom_pixels[:, mid_x - gap:mid_x + gap, :]
+        
+        left_brightness = np.mean(left_bottom_region, axis=2)
+        right_brightness = np.mean(right_bottom_region, axis=2)
+        center_brightness = np.mean(center_bottom_region, axis=2)
+        
+        left_bottom_content = np.sum(left_brightness < content_threshold)
+        right_bottom_content = np.sum(right_brightness < content_threshold)
+        center_bottom_content = np.sum(center_brightness < content_threshold)
+        
+        # 중앙에 콘텐츠가 있으면 colspan 하단 박스로 처리
+        has_center_content = center_bottom_content > 100
+        
+        print(f"  하단 영역 콘텐츠: 좌측={left_bottom_content}, 중앙={center_bottom_content}, 우측={right_bottom_content}")
+        print(f"  중앙 콘텐츠 존재: {has_center_content}")
+        
+        if has_center_content:
+            # 중앙에 콘텐츠가 있음: 2x2 colspan 레이아웃 (기존 로직)
+            # === 상단 좌측 박스 ===
+            tl_x1, tl_y1, tl_x2, tl_y2 = _find_content_bounds_in_region(
+                pixels, padding, content_top, mid_x - gap, top_search_limit,
+                content_threshold, margin_from_content
+            )
+            tl_y1 = max(content_top, tl_y1)
+            tl_y2 = min(tl_y2, top_search_limit)
+            
+            print(f"  상단좌 박스 경계: x={tl_x1}-{tl_x2}, y={tl_y1}-{tl_y2}")
+            draw.rectangle((tl_x1, tl_y1, tl_x2, tl_y2), outline=box_color, width=line_width)
+            _draw_debug_corners(draw, (tl_x1, tl_y1, tl_x2, tl_y2), "TL", font_size=12)
+            
+            # === 상단 우측 박스 ===
+            tr_x1, tr_y1, tr_x2, tr_y2 = _find_content_bounds_in_region(
+                pixels, mid_x + gap, content_top, img_width - padding, top_search_limit,
+                content_threshold, margin_from_content
+            )
+            tr_y1 = max(content_top, tr_y1)
+            tr_y2 = min(tr_y2, top_search_limit)
+            
+            print(f"  상단우 박스 경계: x={tr_x1}-{tr_x2}, y={tr_y1}-{tr_y2}")
+            draw.rectangle((tr_x1, tr_y1, tr_x2, tr_y2), outline=box_color, width=line_width)
+            _draw_debug_corners(draw, (tr_x1, tr_y1, tr_x2, tr_y2), "TR", font_size=12)
+            
+            top_boxes_bottom = max(tl_y2, tr_y2)
+            # 상단 박스들의 x 범위 저장 (하단 박스 확장용)
+            top_boxes_x1 = min(tl_x1, tr_x1)
+            top_boxes_x2 = max(tl_x2, tr_x2)
+        
+        elif left_bottom_content > 100 and right_bottom_content < 100:
+            # 좌측에만 하단 콘텐츠 있음: 1x2 레이아웃 (좌측 전체, 우측 상단만)
+            # === 좌측 박스 (전체 높이) ===
+            left_x1, left_y1, left_x2, left_y2 = _find_content_bounds_in_region(
+                pixels, padding, content_top, mid_x - gap, img_height - padding,
+                content_threshold, margin_from_content
+            )
+            left_y1 = max(content_top, left_y1)
+            
+            print(f"  좌측 박스 경계: x={left_x1}-{left_x2}, y={left_y1}-{left_y2}")
+            draw.rectangle((left_x1, left_y1, left_x2, left_y2), outline=box_color, width=line_width)
+            _draw_debug_corners(draw, (left_x1, left_y1, left_x2, left_y2), "L", font_size=12)
+            
+            # === 우측 박스 (상단만) ===
+            right_x1, right_y1, right_x2, right_y2 = _find_content_bounds_in_region(
+                pixels, mid_x + gap, content_top, img_width - padding, top_search_limit,
+                content_threshold, margin_from_content
+            )
+            right_y1 = max(content_top, right_y1)
+            
+            print(f"  우측 박스 경계: x={right_x1}-{right_x2}, y={right_y1}-{right_y2}")
+            draw.rectangle((right_x1, right_y1, right_x2, right_y2), outline=box_color, width=line_width)
+            _draw_debug_corners(draw, (right_x1, right_y1, right_x2, right_y2), "R", font_size=12)
+            
+            return  # 하단 박스 없음
+        
+        else:
+            # 기존 로직: 상단좌/상단우 박스
+            tl_x1, tl_y1, tl_x2, tl_y2 = _find_content_bounds_in_region(
+                pixels, padding, content_top, mid_x - gap, top_search_limit,
+                content_threshold, margin_from_content
+            )
+            tl_y1 = max(content_top, tl_y1)
+            tl_y2 = min(tl_y2, top_search_limit)
+            
+            print(f"  상단좌 박스 경계: x={tl_x1}-{tl_x2}, y={tl_y1}-{tl_y2}")
+            draw.rectangle((tl_x1, tl_y1, tl_x2, tl_y2), outline=box_color, width=line_width)
+            _draw_debug_corners(draw, (tl_x1, tl_y1, tl_x2, tl_y2), "TL", font_size=12)
+            
+            tr_x1, tr_y1, tr_x2, tr_y2 = _find_content_bounds_in_region(
+                pixels, mid_x + gap, content_top, img_width - padding, top_search_limit,
+                content_threshold, margin_from_content
+            )
+            tr_y1 = max(content_top, tr_y1)
+            tr_y2 = min(tr_y2, top_search_limit)
+            
+            print(f"  상단우 박스 경계: x={tr_x1}-{tr_x2}, y={tr_y1}-{tr_y2}")
+            draw.rectangle((tr_x1, tr_y1, tr_x2, tr_y2), outline=box_color, width=line_width)
+            _draw_debug_corners(draw, (tr_x1, tr_y1, tr_x2, tr_y2), "TR", font_size=12)
+            
+            top_boxes_bottom = max(tl_y2, tr_y2)
+            # 상단 박스들의 x 범위 저장 (하단 박스 확장용)
+            top_boxes_x1 = min(tl_x1, tr_x1)
+            top_boxes_x2 = max(tl_x2, tr_x2)
+    else:
+        top_boxes_bottom = grid_mid_y
+        top_boxes_x1 = padding
+        top_boxes_x2 = img_width - padding
+    
+    # === 하단 박스 (colspan=2) ===
+    if bottom_cell:
+        # 하단 영역: 갭 끝부터 이미지 끝까지 (제한 없음)
+        b_x1, b_y1, b_x2, b_y2 = _find_content_bounds_in_region(
+            pixels, padding, bottom_start_y, img_width - padding, img_height - padding,
+            content_threshold, margin_from_content
+        )
+        # 하단 박스 x 범위: 상단 박스들의 x 범위로 확장 (colspan이므로 전체 너비)
+        b_x1 = min(b_x1, top_boxes_x1)
+        b_x2 = max(b_x2, top_boxes_x2)
+        
+        print(f"  하단 박스 경계: x={b_x1}-{b_x2}, y={b_y1}-{b_y2}")
+        draw.rectangle((b_x1, b_y1, b_x2, b_y2), outline=box_color, width=line_width)
+        _draw_debug_corners(draw, (b_x1, b_y1, b_x2, b_y2), "B", font_size=12)
+
+
+def _find_content_bounds_in_region(
+    pixels: np.ndarray,
+    x1: int, y1: int, x2: int, y2: int,
+    content_threshold: int = 200,
+    margin: int = 13
+) -> Tuple[int, int, int, int]:
+    """지정된 영역 내에서 콘텐츠 경계를 RGB 기반으로 찾기
+    
+    Returns:
+        (left, top, right, bottom) 경계 좌표
+    """
+    # 좌측: 왼쪽에서 오른쪽으로 스캔
+    leftmost_x = x2
+    for x in range(x1, x2):
+        col = pixels[y1:y2, x, :]
+        brightness = np.mean(col, axis=1)
+        if np.sum(brightness < content_threshold) > 3:
+            leftmost_x = x
+            break
+    
+    # 우측: 오른쪽에서 왼쪽으로 스캔
+    rightmost_x = x1
+    for x in range(x2 - 1, x1, -1):
+        col = pixels[y1:y2, x, :]
+        brightness = np.mean(col, axis=1)
+        if np.sum(brightness < content_threshold) > 3:
+            rightmost_x = x
+            break
+    
+    # 상단: 위에서 아래로 스캔
+    topmost_y = y2
+    for y in range(y1, y2):
+        row = pixels[y, x1:x2, :]
+        brightness = np.mean(row, axis=1)
+        if np.sum(brightness < content_threshold) > 5:
+            topmost_y = y
+            break
+    
+    # 하단: 아래에서 위로 스캔
+    bottommost_y = y1
+    for y in range(y2 - 1, y1, -1):
+        row = pixels[y, x1:x2, :]
+        brightness = np.mean(row, axis=1)
+        if np.sum(brightness < content_threshold) > 5:
+            bottommost_y = y
+            break
+    
+    # 마진 적용
+    final_x1 = max(x1, leftmost_x - margin)
+    final_x2 = min(x2, rightmost_x + margin)
+    final_y1 = max(y1, topmost_y - margin)
+    final_y2 = min(y2, bottommost_y + margin)
+    
+    return (final_x1, final_y1, final_x2, final_y2)
 
 
 def _draw_debug_corners(
