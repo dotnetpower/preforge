@@ -215,24 +215,34 @@ class TableSlideBuilder(SlideFactory):
         main_title: str = ""
     ) -> List[Any]:
         """HTML 테이블에서 슬라이드 생성 (자동 분할)"""
-        slide = self._get_blank_slide()
+        # 테이블 데이터 먼저 추출
+        extractor = TableDataExtractor(table_elem).extract()
+        
+        # 분할이 필요한 경우 - 슬라이드 생성 전에 체크
+        header_count = len(extractor.header_rows)
+        body_count = len(extractor.body_rows)
         
         y_position = self.config.margin_top - Inches(0.2)
+        if main_title:
+            y_position = Inches(0.35)
+        table_top = y_position + Inches(0.5)
+        table_height = self.config.height - table_top - self.config.margin_bottom
+        
+        if body_count > self.max_rows_per_slide:
+            # 분할 시 별도 슬라이드들 생성
+            return self._create_split_table_slides(
+                extractor, title, main_title, table_top, table_height
+            )
+        
+        # 단일 슬라이드 생성
+        slide = self._get_blank_slide()
         
         # 메인 타이틀
         if main_title:
             self._add_subtitle(slide, main_title, Pt(12), Inches(0.1))
-            y_position = Inches(0.35)
         
         # 섹션 타이틀
         self._add_title(slide, title, Pt(18), y_position)
-        
-        # 테이블 영역
-        table_top = y_position + Inches(0.5)
-        table_height = self.config.height - table_top - self.config.margin_bottom
-        
-        # 테이블 데이터 추출
-        extractor = TableDataExtractor(table_elem).extract()
         
         # 키-값 테이블인 경우 카드 스타일로 표시
         if extractor.is_key_value_table():
@@ -242,15 +252,6 @@ class TableSlideBuilder(SlideFactory):
                 self.config.content_width, table_height
             )
             return [slide]
-        
-        # 분할이 필요한 경우
-        header_count = len(extractor.header_rows)
-        body_count = len(extractor.body_rows)
-        
-        if body_count > self.max_rows_per_slide:
-            return self._create_split_table_slides(
-                extractor, title, main_title, table_top, table_height
-            )
         
         # 단일 슬라이드
         self.table_builder.create_table(
@@ -517,6 +518,135 @@ class ImageSlideBuilder(SlideFactory):
             return None
 
 
+class SectionSlideBuilder(SlideFactory):
+    """섹션 구분 슬라이드 생성 (중간 타이틀)"""
+    
+    def create(self, title: str, subtitle: str = "") -> Any:
+        """섹션 구분 슬라이드 생성"""
+        slide = self._get_blank_slide()
+        
+        # 배경
+        background = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            0, 0,
+            self.config.width, self.config.height
+        )
+        background.fill.solid()
+        background.fill.fore_color.rgb = self.colors['gray_50']
+        background.line.fill.background()
+        
+        # 중앙 섹션 제목 박스
+        title_height = Inches(1.2)
+        title_box = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            0, (self.config.height - title_height) / 2,
+            self.config.width, title_height
+        )
+        title_box.fill.solid()
+        title_box.fill.fore_color.rgb = self.colors['primary_red']
+        title_box.line.fill.background()
+        
+        # 섹션 제목 텍스트
+        title_tf = title_box.text_frame
+        title_tf.text = title
+        title_tf.paragraphs[0].alignment = PP_ALIGN.CENTER
+        title_tf.paragraphs[0].font.size = Pt(32)
+        title_tf.paragraphs[0].font.bold = True
+        title_tf.paragraphs[0].font.color.rgb = self.colors['white']
+        
+        # 부제목
+        if subtitle:
+            subtitle_box = slide.shapes.add_textbox(
+                Inches(1), (self.config.height + title_height) / 2 + Inches(0.2),
+                self.config.width - Inches(2), Inches(0.8)
+            )
+            subtitle_frame = subtitle_box.text_frame
+            subtitle_frame.text = subtitle
+            subtitle_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+            subtitle_frame.paragraphs[0].font.size = Pt(16)
+            subtitle_frame.paragraphs[0].font.color.rgb = self.colors['gray_600']
+            subtitle_frame.word_wrap = True
+        
+        return slide
+
+
+class ReferenceCardSlideBuilder(SlideFactory):
+    """Reference 카드 슬라이드 생성"""
+    
+    def create(self, reference_card: Tag, section_title: str = "") -> Optional[Any]:
+        """Reference 카드에서 슬라이드 생성"""
+        slide = self._get_blank_slide()
+        
+        y_position = self.config.margin_top - Inches(0.2)
+        
+        # 섹션 타이틀 (작은 글씨)
+        if section_title:
+            self._add_subtitle(slide, section_title, Pt(11), Inches(0.1))
+            y_position = Inches(0.35)
+        
+        # Reference 제목 추출 (reference-number에서)
+        ref_number = reference_card.find('div', class_='reference-number')
+        if ref_number:
+            ref_title = ref_number.get_text(strip=True)
+        else:
+            ref_title = "Reference"
+        
+        # 제목 (Reference 제목)
+        title_box = slide.shapes.add_textbox(
+            self.config.margin_left, y_position,
+            self.config.content_width, Inches(0.6)
+        )
+        title_frame = title_box.text_frame
+        title_frame.word_wrap = True
+        title_frame.text = ref_title
+        title_para = title_frame.paragraphs[0]
+        title_para.font.size = Pt(16)
+        title_para.font.bold = True
+        title_para.font.color.rgb = self.colors['primary_red']
+        
+        y_position += Inches(0.7)
+        
+        # 메타 정보 (저널, 날짜 등)
+        ref_meta = reference_card.find('div', class_='reference-meta')
+        if ref_meta:
+            meta_text = ref_meta.get_text(strip=True)
+            meta_box = slide.shapes.add_textbox(
+                self.config.margin_left, y_position,
+                self.config.content_width, Inches(0.3)
+            )
+            meta_frame = meta_box.text_frame
+            meta_frame.text = meta_text
+            meta_para = meta_frame.paragraphs[0]
+            meta_para.font.size = Pt(10)
+            meta_para.font.color.rgb = self.colors['gray_600']
+            y_position += Inches(0.4)
+        
+        # 요약 내용
+        ref_summary = reference_card.find('div', class_='reference-summary')
+        if ref_summary:
+            # 요약 텍스트 정리
+            summary_text = ref_summary.get_text(separator='\n', strip=True)
+            # 길이 제한
+            if len(summary_text) > 1500:
+                summary_text = summary_text[:1500] + "..."
+            
+            summary_box = slide.shapes.add_textbox(
+                self.config.margin_left, y_position,
+                self.config.content_width,
+                self.config.height - y_position - self.config.margin_bottom
+            )
+            summary_frame = summary_box.text_frame
+            summary_frame.word_wrap = True
+            summary_frame.text = summary_text
+            
+            for paragraph in summary_frame.paragraphs:
+                paragraph.font.size = Pt(9)
+                paragraph.font.color.rgb = self.colors['gray_800']
+                paragraph.line_spacing = 1.3
+        
+        return slide
+
+
 class EvidenceSlideBuilder(SlideFactory):
     """Evidence 테이블 슬라이드 생성"""
     
@@ -526,14 +656,19 @@ class EvidenceSlideBuilder(SlideFactory):
         
         self._add_title(slide, title, Pt(18))
         
-        evidence_rows = evidence_div.find_all('div', class_='evidence-row')
-        if not evidence_rows:
-            evidence_rows = evidence_div.find_all('div', class_='evidence-cell')
+        # evidence-row 내부 또는 직접 evidence-cell 찾기
+        evidence_row = evidence_div.find('div', class_='evidence-row')
+        if evidence_row:
+            # evidence-row 내부의 evidence-cell들을 데이터 행으로 사용
+            data_rows = evidence_row.find_all('div', class_='evidence-cell')
+        else:
+            # evidence-row가 없으면 직접 evidence-cell 찾기
+            data_rows = evidence_div.find_all('div', class_='evidence-cell')
         
-        if not evidence_rows:
+        if not data_rows:
             return slide
         
-        max_rows = min(len(evidence_rows), 10)
+        max_rows = min(len(data_rows), 10)
         
         # 테이블 데이터 추출
         table_data = []
@@ -547,7 +682,7 @@ class EvidenceSlideBuilder(SlideFactory):
                 table_data.append(headers[:8])
         
         # 데이터 행 추출
-        for row_idx, row in enumerate(evidence_rows[:max_rows]):
+        for row_idx, row in enumerate(data_rows[:max_rows]):
             row_texts = []
             text_elements = row.find_all('div', class_='evidence-text')
             
@@ -576,9 +711,17 @@ class EvidenceSlideBuilder(SlideFactory):
             while len(row) < max_cols:
                 row.append('')
         
-        # 테이블 생성
+        # 테이블 생성 - 행 수에 따라 높이 조정
         table_top = self.config.margin_top + Inches(0.4)
-        table_height = self.config.height - table_top - self.config.margin_bottom
+        max_table_height = self.config.height - table_top - self.config.margin_bottom
+        
+        # 행당 높이 계산 (헤더: 0.3인치, 데이터: 0.4인치)
+        num_rows = len(table_data)
+        row_height = Inches(0.4)
+        calculated_height = row_height * num_rows
+        
+        # 계산된 높이와 최대 높이 중 작은 값 사용
+        table_height = min(calculated_height, max_table_height)
         
         try:
             ppt_table = slide.shapes.add_table(

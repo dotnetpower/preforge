@@ -28,7 +28,9 @@ from .slide_factory import (
     ContentSlideBuilder,
     TableSlideBuilder,
     ImageSlideBuilder,
-    EvidenceSlideBuilder
+    EvidenceSlideBuilder,
+    SectionSlideBuilder,
+    ReferenceCardSlideBuilder
 )
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,8 @@ class HtmlToPptxConverter:
         self._table_builder: Optional[TableSlideBuilder] = None
         self._image_builder: Optional[ImageSlideBuilder] = None
         self._evidence_builder: Optional[EvidenceSlideBuilder] = None
+        self._section_builder: Optional[SectionSlideBuilder] = None
+        self._reference_builder: Optional[ReferenceCardSlideBuilder] = None
     
     def convert(self, html_path: Path, output_path: Path) -> None:
         """
@@ -118,6 +122,12 @@ class HtmlToPptxConverter:
         self._evidence_builder = EvidenceSlideBuilder(
             self.prs, self.slide_config, self.colors
         )
+        self._section_builder = SectionSlideBuilder(
+            self.prs, self.slide_config, self.colors
+        )
+        self._reference_builder = ReferenceCardSlideBuilder(
+            self.prs, self.slide_config, self.colors
+        )
     
     def _create_title_slide(self, soup: BeautifulSoup) -> None:
         """타이틀 슬라이드 생성"""
@@ -154,11 +164,29 @@ class HtmlToPptxConverter:
         gene_title_elem = content_container.find('h1', class_='gene-title')
         main_title = gene_title_elem.get_text(strip=True) if gene_title_elem else "Gene Analysis"
         
+        # sequence-section 찾기 (Detailed Results 섹션)
+        sequence_section = content_container.find('div', class_='sequence-section')
+        
+        # sequence-section 내부의 gene-section ID 목록 생성 (중복 방지용)
+        sequence_section_ids = set()
+        if sequence_section:
+            for gs in sequence_section.find_all('div', class_='gene-section'):
+                sequence_section_ids.add(id(gs))
+        
         gene_sections = content_container.find_all('div', class_='gene-section')
         seq_viewer_index = 0
         
         for idx, gene_section in enumerate(gene_sections, 1):
+            # sequence-section 내부의 gene-section은 건너뛰기 (나중에 별도 처리)
+            if id(gene_section) in sequence_section_ids:
+                continue
+            
             section_title = self._get_section_title(gene_section, idx)
+            
+            # 출처 종합 관련 섹션인지 확인 (숫자로 시작하는 Evidence 섹션)
+            if section_title and section_title[0].isdigit() and '.' in section_title:
+                # Evidence 섹션은 _process_evidence_section에서 처리
+                continue
             
             # SeqViewerApp 스크린샷 캡처
             seq_viewers = gene_section.find_all('div', class_='SeqViewerApp', recursive=False)
@@ -181,15 +209,38 @@ class HtmlToPptxConverter:
         # gene-section 외부의 독립적인 h3 섹션 처리 (3.3, 3.4 등)
         self._process_standalone_h3_sections(content_container, main_title)
         
-        # Evidence 테이블 처리
-        self._process_evidence_tables(content_container)
+        # Detailed Results 섹션 처리 (sequence-section)
+        self._process_sequence_section(content_container)
+        
+        # 출처 종합 - Evidence 테이블 처리
+        self._process_evidence_section(content_container)
     
     def _get_section_title(self, gene_section: Tag, default_idx: int) -> str:
         """섹션 제목 추출"""
+        # h2.subsection-title 확인
         subsection_title = gene_section.find('h2', class_='subsection-title')
         if subsection_title:
             return subsection_title.get_text(strip=True)
-        return f"Section {default_idx}"
+        
+        # h3.subsection-title 확인
+        h3_title = gene_section.find('h3', class_='subsection-title')
+        if h3_title:
+            return h3_title.get_text(strip=True)
+        
+        # 일반 h3 확인
+        h3_elem = gene_section.find('h3')
+        if h3_elem:
+            return h3_elem.get_text(strip=True)
+        
+        # 일반 h2 확인
+        h2_elem = gene_section.find('h2')
+        if h2_elem:
+            return h2_elem.get_text(strip=True)
+        
+        # 기본값 반환
+        if default_idx > 0:
+            return f"Section {default_idx}"
+        return "Section"
     
     def _process_images(self, gene_section: Tag, section_title: str, main_title: str) -> None:
         """이미지 처리"""
@@ -408,7 +459,7 @@ class HtmlToPptxConverter:
         for h3 in standalone_h3_elements:
             h3_title = h3.get_text(strip=True)
             
-            # h3 다음에 오는 테이블 또는 reference-card 찾기
+            # h3 다음에 오는 요소들 수집
             next_sibling = h3.find_next_sibling()
             
             if next_sibling:
@@ -416,70 +467,128 @@ class HtmlToPptxConverter:
                 if next_sibling.name == 'table':
                     self._table_builder.create_from_html(next_sibling, h3_title, main_title)
                 
-                # reference-card 처리 (예: 3.4 주요 문헌)
+                # Reference 카드가 여러 개인 경우 (예: 3.4 주요 문헌)
                 elif next_sibling.name == 'div' and 'reference-card' in next_sibling.get('class', []):
-                    self._create_reference_slide(next_sibling, h3_title, main_title)
+                    # 섹션 구분 슬라이드 생성
+                    self._section_builder.create(h3_title)
+                    
+                    # 모든 reference-card를 개별 슬라이드로 생성
+                    current = next_sibling
+                    while current and current.name == 'div' and 'reference-card' in current.get('class', []):
+                        self._reference_builder.create(current, h3_title)
+                        current = current.find_next_sibling()
     
-    def _create_reference_slide(self, reference_div: Tag, title: str, main_title: str = "") -> None:
-        """Reference card 슬라이드 생성"""
-        slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
+    def _process_sequence_section(self, content_container: Tag) -> None:
+        """
+        Detailed Results of the AI-based sequence analysis 섹션 처리
+        sequence-section 클래스를 가진 div를 찾아 처리
+        """
+        # sequence-section 찾기
+        sequence_section = content_container.find('div', class_='sequence-section')
+        if not sequence_section:
+            return
         
-        # 메인 타이틀
-        if main_title:
-            main_box = slide.shapes.add_textbox(
-                self.slide_config.margin_left, Inches(0.1),
-                self.slide_config.content_width, Inches(0.25)
-            )
-            main_frame = main_box.text_frame
-            main_frame.text = main_title
-            main_frame.paragraphs[0].font.size = Pt(12)
-            main_frame.paragraphs[0].font.color.rgb = self.colors['gray_600']
-        
-        # 섹션 타이틀
-        title_top = Inches(0.35) if main_title else self.slide_config.margin_top
-        title_box = slide.shapes.add_textbox(
-            self.slide_config.margin_left, title_top,
-            self.slide_config.content_width, Inches(0.4)
-        )
-        title_frame = title_box.text_frame
-        title_frame.text = title
-        title_para = title_frame.paragraphs[0]
-        title_para.font.size = Pt(18)
-        title_para.font.bold = True
-        title_para.font.color.rgb = self.colors['primary_red']
-        
-        # Reference 내용 추출
-        content_top = title_top + Inches(0.5)
-        references = reference_div.find_all('div', class_='reference-item')
-        
-        if references:
-            content_text = []
-            for idx, ref in enumerate(references, 1):
-                ref_text = ref.get_text(strip=True)
-                content_text.append(f"{idx}. {ref_text}")
-            
-            content = "\n\n".join(content_text)
+        # h2.sequence-title 찾기
+        sequence_title_elem = sequence_section.find('h2', class_='sequence-title')
+        if sequence_title_elem:
+            sequence_title = sequence_title_elem.get_text(strip=True)
         else:
-            # reference-item이 없으면 전체 텍스트 추출
-            content = reference_div.get_text(strip=True)
+            sequence_title = "Detailed Results of the AI-based sequence analysis"
         
-        # 내용 텍스트박스
-        content_box = slide.shapes.add_textbox(
-            self.slide_config.margin_left, content_top,
-            self.slide_config.content_width, 
-            self.slide_config.height - content_top - self.slide_config.margin_bottom
-        )
-        content_frame = content_box.text_frame
-        content_frame.word_wrap = True
-        content_frame.text = content
+        # 제목 슬라이드 생성
+        self._title_builder.create(sequence_title, "AI 기반 서열 분석 상세 결과")
         
-        for paragraph in content_frame.paragraphs:
-            paragraph.font.size = Pt(10)
-            paragraph.font.color.rgb = self.colors['gray_800']
-            paragraph.line_spacing = 1.3
+        # sequence-section 내부의 gene-section들 처리
+        gene_sections = sequence_section.find_all('div', class_='gene-section')
+        seq_viewer_index = 0
+        
+        for gene_section in gene_sections:
+            section_title = self._get_section_title(gene_section, 0)
+            
+            # SeqViewerApp 스크린샷 캡처
+            seq_viewers = gene_section.find_all('div', class_='SeqViewerApp', recursive=False)
+            for sv_idx, _ in enumerate(seq_viewers):
+                viewer_title = f"{section_title} - Sequence Viewer"
+                if len(seq_viewers) > 1:
+                    viewer_title += f" ({sv_idx + 1})"
+                self._capture_element_screenshot('.SeqViewerApp', viewer_title, seq_viewer_index)
+                seq_viewer_index += 1
+            
+            # 이미지 처리
+            self._process_images(gene_section, section_title, sequence_title)
+            
+            # 테이블과 background-text를 HTML 순서대로 처리
+            tables = gene_section.find_all('table', class_='data-table')
+            background_texts = gene_section.find_all('div', class_='background-text')
+            
+            if tables and not background_texts:
+                # 테이블만 있는 경우
+                for table in tables:
+                    self._table_builder.create_from_html(table, section_title, sequence_title)
+            elif background_texts and not tables:
+                # background-text만 있는 경우
+                for bg_text in background_texts:
+                    text_content = bg_text.get_text(strip=True)
+                    if text_content:
+                        self._content_builder.create_with_text(section_title, text_content, sequence_title)
+            elif tables and background_texts:
+                # 둘 다 있는 경우: 테이블 슬라이드에 background-text 포함
+                for table in tables:
+                    # background-text를 subtitle로 사용
+                    bg_text = background_texts[0].get_text(strip=True) if background_texts else ""
+                    self._table_builder.create_from_html(table, section_title, sequence_title)
     
-    def _process_evidence_tables(self, content_container: Tag) -> None:
-        """Evidence 테이블 처리"""
+    def _process_evidence_section(self, content_container: Tag) -> None:
+        """
+        출처 종합 섹션 처리 (Evidence 테이블들)
+        h2.subsection-title로 시작하는 Evidence 섹션들을 처리
+        """
+        # Evidence 관련 h2 섹션들 찾기
+        evidence_titles = [
+            '1. gene name', '2. protein name', '3. gene_synonyms',
+            '4. related gene name', '5. feature reference', '6. gc content reference',
+            '7. copy number reference', '8. application usage reference',
+            '9. mutation variation reference', '10. species discrimination reference',
+            '11. pros cons reference', '12. product institution reference'
+        ]
+        
+        all_subsections = content_container.find_all('h2', class_='subsection-title')
+        evidence_subsections = []
+        
+        for subsection in all_subsections:
+            section_title = subsection.get_text(strip=True)
+            # Evidence 관련 섹션인지 확인 (숫자로 시작하거나 특정 키워드 포함)
+            if any(section_title.lower().startswith(t.split('.')[0] + '.') for t in evidence_titles) or \
+               'reference' in section_title.lower() or \
+               section_title.lower().startswith(tuple(str(i) + '.' for i in range(1, 13))):
+                evidence_subsections.append(subsection)
+        
+        if not evidence_subsections:
+            # 기존 방식으로 Evidence 테이블 처리
+            self._process_evidence_tables_legacy(content_container)
+            return
+        
+        # 출처 종합 섹션 슬라이드 생성
+        self._section_builder.create("출처 종합", "Evidence References")
+        
+        # 각 Evidence 섹션 처리
+        for subsection in evidence_subsections:
+            section_title = subsection.get_text(strip=True)
+            
+            next_elem = subsection.find_next_sibling()
+            while next_elem:
+                if next_elem.name == 'h2':
+                    break
+                if next_elem.get('class') and 'gene-section' in next_elem.get('class', []):
+                    break
+                
+                if next_elem.name == 'div' and 'evidence-table' in next_elem.get('class', []):
+                    self._evidence_builder.create(next_elem, section_title)
+                
+                next_elem = next_elem.find_next_sibling()
+    
+    def _process_evidence_tables_legacy(self, content_container: Tag) -> None:
+        """Evidence 테이블 처리 (기존 방식)"""
         all_subsections = content_container.find_all('h2', class_='subsection-title')
         
         for subsection in all_subsections:
