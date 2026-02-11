@@ -1,7 +1,7 @@
 """
-HTML to PPTX 변환 설정 및 상수
+HTML to PPTX conversion settings and constants
 
-슬라이드 크기, 색상, 여백 등 공통 설정을 관리합니다.
+Manages common settings like slide size, colors, margins, etc.
 """
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
@@ -11,7 +11,7 @@ from typing import Dict
 
 @dataclass
 class SlideConfig:
-    """슬라이드 레이아웃 설정"""
+    """Slide layout settings"""
     width: int = Inches(10)
     height: int = Inches(7.5)
     margin_left: int = Inches(0.3)
@@ -30,7 +30,7 @@ class SlideConfig:
 
 @dataclass
 class TableConfig:
-    """테이블 설정"""
+    """Table settings"""
     max_rows_per_slide: int = 8
     min_row_height: int = Inches(0.22)
     row_height_estimate: int = Inches(0.28)
@@ -43,14 +43,14 @@ class TableConfig:
 
 @dataclass
 class BorderConfig:
-    """테두리 설정"""
+    """Border settings"""
     thick_line: int = Pt(1.5)
     thin_line: int = Pt(0.5)
     no_line: int = Pt(0)
 
 
 class ColorPalette:
-    """색상 팔레트"""
+    """Color palette"""
     
     def __init__(self):
         self._colors: Dict[str, RGBColor] = {
@@ -76,7 +76,7 @@ class ColorPalette:
         return self._colors.get(key, default or self._colors['black'])
 
 
-# 기본 설정 인스턴스
+# Default settings instances
 DEFAULT_SLIDE_CONFIG = SlideConfig()
 DEFAULT_TABLE_CONFIG = TableConfig()
 DEFAULT_BORDER_CONFIG = BorderConfig()

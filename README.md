@@ -1,93 +1,93 @@
 # preforge
 document processing
 
-## 개요
+## Overview
 
-각종 문서(docx, pptx, xlsx, html, md 등)를 읽거나 변환할 수 있는 파이썬 라이브러리입니다.
+A Python library for reading and converting various document formats (docx, pptx, xlsx, html, md, etc.).
 
-## 주요 기능
+## Key Features
 
-### 문서 파싱
-- **DOCX**: Word 문서 파싱 및 분석
-- **PPTX**: PowerPoint 프레젠테이션 파싱
-- **HTML**: HTML 문서 파싱
-- **PDF**: PDF 문서 파싱
-- **XLSX**: Excel 파일 파싱 (계획)
+### Document Parsing
+- **DOCX**: Word document parsing and analysis
+- **PPTX**: PowerPoint presentation parsing
+- **HTML**: HTML document parsing
+- **PDF**: PDF document parsing
+- **XLSX**: Excel file parsing (planned)
 
-### 문서 변환
-- **PPTX → DOCX**: PowerPoint를 Word 문서로 변환
-- **HTML → PPTX**: HTML 문서를 PowerPoint로 변환 ✨ NEW
-  - 전체 문서 완전 변환 (34+ 슬라이드)
-  - 테이블 가독성 대폭 향상
-  - 자동 레이아웃 최적화
+### Document Conversion
+- **PPTX to DOCX**: Convert PowerPoint to Word documents
+- **HTML to PPTX**: Convert HTML documents to PowerPoint NEW
+  - Complete document conversion (34+ slides)
+  - Significantly improved table readability
+  - Automatic layout optimization
 
-## 설치
+## Installation
 
 ```bash
-# 개발 모드로 설치
+# Install in development mode
 pip install -e .
 
-# 의존성만 설치
+# Install dependencies only
 pip install -r requirements.txt
 ```
 
-## 빠른 시작
+## Quick Start
 
-### HTML to PPTX 변환
+### HTML to PPTX Conversion
 
 ```python
 from pathlib import Path
 from preforge.converters import convert_html_to_pptx
 
-# HTML 파일을 PPTX로 변환
+# Convert HTML file to PPTX
 input_path = Path("input.html")
 output_path = Path("output.pptx")
 
 convert_html_to_pptx(input_path, output_path)
 ```
 
-### 명령줄에서 사용
+### Command Line Usage
 
 ```bash
 # HTML to PPTX
 python scripts/convert_html_to_pptx.py input.html output.pptx
 
-# 예제 실행
+# Run examples
 python scripts/html_to_pptx_examples.py
 ```
 
-## 문서
+## Documentation
 
-- [HTML to PPTX 변환 가이드](docs/html_to_pptx_guide.md)
-- [아키텍처](docs/architecture.md)
-- [요구사항](docs/requirements.md)
-- [설정 가이드](docs/setup.md)
+- [HTML to PPTX Conversion Guide](docs/html_to_pptx_guide.md)
+- [Architecture](docs/architecture.md)
+- [Requirements](docs/requirements.md)
+- [Setup Guide](docs/setup.md)
 
-## 테스트
+## Testing
 
 ```bash
-# 전체 테스트 실행
+# Run all tests
 pytest tests/
 
-# HTML to PPTX 변환 테스트만 실행
+# Run only HTML to PPTX conversion tests
 pytest tests/unit/test_html_to_pptx_converter.py -v
 ```
 
-## 프로젝트 구조
+## Project Structure
 
 ```
 preforge/
 ├── src/preforge/
-│   ├── core/           # 핵심 문서 처리 모듈
-│   ├── parsers/        # 문서 파서들
-│   ├── converters/     # 문서 변환기들
-│   └── extractors/     # 데이터 추출기들
-├── tests/              # 테스트 코드
-├── scripts/            # 유틸리티 스크립트
-└── docs/               # 문서
+│   ├── core/           # Core document processing module
+│   ├── parsers/        # Document parsers
+│   ├── converters/     # Document converters
+│   └── extractors/     # Data extractors
+├── tests/              # Test code
+├── scripts/            # Utility scripts
+└── docs/               # Documentation
 ```
 
-## 의존성
+## Dependencies
 
 - `python >= 3.13`
 - `python-pptx >= 1.0.2`
@@ -96,7 +96,7 @@ preforge/
 - `lxml >= 6.0.2`
 - `pillow >= 12.1.0`
 
-자세한 의존성은 [pyproject.toml](pyproject.toml)을 참조하세요.
+For detailed dependencies, refer to [pyproject.toml](pyproject.toml).
 
 ## 라이센스
 

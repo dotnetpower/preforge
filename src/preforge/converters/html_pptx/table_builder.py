@@ -1,7 +1,7 @@
 """
-테이블 생성 및 스타일링 모듈
+Table creation and styling module
 
-PowerPoint 테이블 생성, 테두리 적용, 열 너비 조정 등을 담당합니다.
+Handles PowerPoint table creation, border styling, column width adjustment, etc.
 """
 import logging
 from typing import List, Optional, Dict, Any, Tuple
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 class TableDataExtractor:
-    """HTML 테이블에서 데이터를 추출하는 클래스"""
+    """Class that extracts data from HTML tables"""
     
     def __init__(self, table_elem: Tag):
         self.table_elem = table_elem
@@ -40,11 +40,11 @@ class TableDataExtractor:
         self.max_cols = 0
     
     def extract(self) -> 'TableDataExtractor':
-        """테이블 데이터 추출"""
+        """Extract table data"""
         thead = self.table_elem.find('thead')
         tbody = self.table_elem.find('tbody')
         
-        # thead 처리
+        # Process thead
         if thead:
             self.has_header = True
             header_trs = thead.find_all('tr')
@@ -57,7 +57,7 @@ class TableDataExtractor:
                     cells = tr.find_all(['th', 'td'])
                     self.col_widths_html = StyleExtractor.extract_column_widths(cells)
         
-        # tbody 처리
+        # Process tbody
         if tbody:
             body_trs = tbody.find_all('tr')
             for idx, tr in enumerate(body_trs):
@@ -69,7 +69,7 @@ class TableDataExtractor:
                     cells = tr.find_all(['th', 'td'])
                     self.col_widths_html = StyleExtractor.extract_column_widths(cells)
         
-        # thead도 tbody도 없는 경우 (직접 tr 사용)
+        # If neither thead nor tbody exists (use tr directly)
         if not self.has_header and not tbody:
             all_rows = self.table_elem.find_all('tr')
             for idx, tr in enumerate(all_rows):
@@ -81,7 +81,7 @@ class TableDataExtractor:
                     cells = tr.find_all(['th', 'td'])
                     self.col_widths_html = StyleExtractor.extract_column_widths(cells)
         
-        # 열 개수 결정 및 정규화
+        # Determine and normalize column count
         if self.rows_data:
             self.max_cols = max(len(row) for row in self.rows_data)
             for row in self.rows_data:
@@ -91,29 +91,29 @@ class TableDataExtractor:
         return self
     
     def _extract_row_data(self, tr: Tag, row_idx: int) -> List[str]:
-        """행 데이터 추출 (colspan 처리 포함)"""
+        """Extract row data (including colspan handling)"""
         cells = tr.find_all(['th', 'td'])
         row_data = []
         col_idx = 0
         
         for cell in cells:
-            # bullet, linebreak 유지하며 텍스트 추출
+            # Extract text while preserving bullets and line breaks
             text = TextUtils.extract_cell_text_with_formatting(cell)
             colspan = int(cell.get('colspan', 1))
             rowspan = int(cell.get('rowspan', 1))
             
-            # 스타일 추출
+            # Extract styles
             styles = StyleExtractor.extract_cell_styles(cell)
             if styles['bold'] or styles['color'] or styles['link']:
                 self.cell_styles[(row_idx, col_idx)] = styles
             
             row_data.append(text)
             
-            # colspan이 있으면 빈 셀 추가
+            # Add empty cells if colspan exists
             for _ in range(colspan - 1):
                 row_data.append('')
             
-            # 머지 정보 저장
+            # Save merge information
             if colspan > 1 or rowspan > 1:
                 self.merge_info.append((row_idx, col_idx, colspan, rowspan))
             
@@ -122,7 +122,7 @@ class TableDataExtractor:
         return row_data
     
     def is_key_value_table(self) -> bool:
-        """키-값 형태의 테이블인지 확인"""
+        """Check if the table is a key-value table"""
         if self.has_header:
             return False
         if len(self.body_rows) > 5:
@@ -135,7 +135,7 @@ class TableDataExtractor:
 
 
 class TableBorderStyler:
-    """테이블 테두리 스타일을 적용하는 클래스"""
+    """Class that applies table border styles"""
     
     def __init__(
         self, 
@@ -152,7 +152,7 @@ class TableBorderStyler:
         row_count: int, 
         col_count: int
     ) -> None:
-        """학술 논문 스타일 테두리 적용 (상하단 굵은 선, 헤더 하단 굵은 선)"""
+        """Apply academic paper style borders (thick lines at top/bottom, thick line below header)"""
         thick_line = self.border_config.thick_line
         thin_line = self.border_config.thin_line
         no_line = self.border_config.no_line
@@ -165,7 +165,7 @@ class TableBorderStyler:
                 try:
                     cell = ppt_table.cell(i, j)
                     
-                    # 상단 선
+                    # Top line
                     if i == 0:
                         self._set_cell_border(cell, 'top', thick_line, black)
                     elif i == header_count and header_count > 0:
@@ -173,7 +173,7 @@ class TableBorderStyler:
                     else:
                         self._set_cell_border(cell, 'top', thin_line, gray_line)
                     
-                    # 하단 선
+                    # Bottom line
                     if i == row_count - 1:
                         self._set_cell_border(cell, 'bottom', thick_line, black)
                     elif i == header_count - 1 and header_count > 0:
@@ -181,7 +181,7 @@ class TableBorderStyler:
                     else:
                         self._set_cell_border(cell, 'bottom', thin_line, gray_line)
                     
-                    # 좌우 테두리 없음
+                    # No left/right borders
                     self._set_cell_border(cell, 'left', no_line, black)
                     self._set_cell_border(cell, 'right', no_line, black)
                     
@@ -189,7 +189,7 @@ class TableBorderStyler:
                     pass
     
     def _set_cell_border(self, cell, side: str, width: int, color: RGBColor) -> None:
-        """셀의 특정 테두리 설정"""
+        """Set specific border of a cell"""
         tc = cell._tc
         tcPr = tc.get_or_add_tcPr()
         
@@ -204,14 +204,14 @@ class TableBorderStyler:
         if not border_elem_name:
             return
         
-        # 기존 테두리 요소 제거
+        # Remove existing border elements
         for existing in list(tcPr):
             if existing.tag == qn(border_elem_name):
                 tcPr.remove(existing)
         
         width_emu = int(width) if width > 0 else 0
         
-        # 새 테두리 요소 생성
+        # Create new border element
         ln = etree.Element(qn(border_elem_name))
         
         if width_emu > 0:
@@ -234,7 +234,7 @@ class TableBorderStyler:
 
 
 class TableColumnAdjuster:
-    """테이블 열 너비를 조정하는 클래스"""
+    """Class that adjusts table column widths"""
     
     @staticmethod
     def apply_html_widths(
@@ -242,7 +242,7 @@ class TableColumnAdjuster:
         col_widths_html: List[Optional[int]], 
         total_width: float
     ) -> None:
-        """HTML에서 추출한 width 속성을 적용"""
+        """Apply width attributes extracted from HTML"""
         try:
             col_count = len(col_widths_html)
             if col_count == 0:
@@ -294,11 +294,11 @@ class TableColumnAdjuster:
                             ppt_table.columns[j].width = equal_width
         
         except Exception as e:
-            logger.debug(f"HTML width 적용 실패: {e}")
+            logger.debug(f"Failed to apply HTML width: {e}")
     
     @staticmethod
     def auto_adjust(ppt_table, rows_data: List[List[str]]) -> None:
-        """텍스트 길이 기반으로 열 너비 자동 조정"""
+        """Auto-adjust column widths based on text length"""
         try:
             col_count = len(rows_data[0]) if rows_data else 0
             if col_count == 0:
@@ -332,11 +332,11 @@ class TableColumnAdjuster:
                 ppt_table.columns[j].width = int(total_table_width * proportion)
         
         except Exception as e:
-            logger.debug(f"열 너비 조정 실패: {e}")
+            logger.debug(f"Failed to adjust column widths: {e}")
 
 
 class TableBuilder:
-    """PowerPoint 테이블을 생성하는 클래스"""
+    """Class that creates PowerPoint tables"""
     
     def __init__(
         self,
@@ -360,7 +360,7 @@ class TableBuilder:
         merge_info: List[Tuple[int, int, int, int]] = None,
         cell_styles: Dict[Tuple[int, int], Dict[str, Any]] = None
     ):
-        """PowerPoint 테이블 생성"""
+        """Create PowerPoint table"""
         if merge_info is None:
             merge_info = []
         if cell_styles is None:
@@ -372,7 +372,7 @@ class TableBuilder:
         max_cols = len(rows_data[0])
         row_count = len(rows_data)
         
-        # 폰트 크기 결정
+        # Determine font size
         if row_count > 20 or max_cols > 6:
             base_font_size = Pt(7)
             header_font_size = Pt(8)
@@ -383,7 +383,7 @@ class TableBuilder:
             base_font_size = self.table_config.body_font_size
             header_font_size = self.table_config.header_font_size
         
-        # 테이블 높이 계산
+        # Calculate table height
         min_row_height = self.table_config.min_row_height
         required_height = min_row_height * row_count
         height = min(required_height, height)
@@ -394,7 +394,7 @@ class TableBuilder:
                 left, top, width, height
             ).table
             
-            # 데이터 채우기
+            # Fill data
             for i, row_data in enumerate(rows_data):
                 for j, cell_data in enumerate(row_data):
                     if j >= max_cols:
@@ -438,7 +438,7 @@ class TableBuilder:
                                 paragraph.font.color.rgb = self.colors['link_blue']
                                 paragraph.font.underline = True
                             
-                            # bullet(•)이 있으면 왼쪽 정렬, 그 외에는 가운데 정렬
+                            # Left-align if bullet(•) present, otherwise center-align
                             if '•' in cell_data or '\n' in cell_data:
                                 paragraph.alignment = PP_ALIGN.LEFT
                             else:
@@ -448,12 +448,12 @@ class TableBuilder:
                         
                         paragraph.line_spacing = 1.1
             
-            # 테두리 적용
+            # Apply borders
             self.border_styler.apply_academic_borders(
                 ppt_table, header_count, row_count, max_cols
             )
             
-            # 셀 머지 적용
+            # Apply cell merge
             for row_idx, col_idx, colspan, rowspan in merge_info:
                 try:
                     if row_idx < row_count and col_idx < max_cols:
@@ -469,7 +469,7 @@ class TableBuilder:
                 except Exception:
                     pass
             
-            # 열 너비 조정
+            # Adjust column widths
             if col_widths_html and any(w is not None for w in col_widths_html):
                 TableColumnAdjuster.apply_html_widths(ppt_table, col_widths_html, width)
             else:
@@ -478,5 +478,5 @@ class TableBuilder:
             return ppt_table
             
         except Exception as e:
-            logger.error(f"테이블 생성 실패: {e}")
+            logger.error(f"Failed to create table: {e}")
             return None

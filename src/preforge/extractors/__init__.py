@@ -1,3 +1,3 @@
-"""Extractors 모듈 - 파서에서 이미 추출 기능이 구현되어 있으므로 향후 확장용"""
+"""Extractors module - Extraction functionality is already implemented in parsers, reserved for future extension"""
 
 __all__ = []

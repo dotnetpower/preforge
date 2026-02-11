@@ -1,7 +1,7 @@
 """
-HTML(.html) 문서를 PDF(.pdf)로 변환하는 컨버터
+HTML(.html) to PDF(.pdf) converter
 
-Playwright(Chromium)를 사용하여 브라우저와 동일한 품질의 PDF를 생성합니다.
+Uses Playwright (Chromium) to generate PDFs with browser-quality output.
 """
 from pathlib import Path
 from typing import Optional
@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 
 class HtmlToPdfConverter:
-    """HTML을 PDF로 변환하는 컨버터 (Chromium 기반)"""
+    """HTML to PDF converter (Chromium-based)"""
     
     def __init__(self):
         if not HAS_PLAYWRIGHT:
             raise ImportError(
-                "playwright가 설치되지 않았습니다. "
-                "pip install playwright && playwright install chromium 으로 설치하세요."
+                "playwright is not installed. "
+                "Install with: pip install playwright && playwright install chromium"
             )
     
     def convert(
@@ -38,43 +38,43 @@ class HtmlToPdfConverter:
         margin_right: str = "10mm",
     ) -> Path:
         """
-        HTML 파일을 PDF로 변환 (브라우저 Print to PDF와 동일)
+        Convert HTML file to PDF (equivalent to browser Print to PDF)
         
         Args:
-            input_path: 입력 HTML 파일 경로
-            output_path: 출력 PDF 파일 경로 (None이면 같은 위치에 .pdf로 저장)
-            format: 용지 크기 (A4, Letter 등)
-            print_background: 배경색/이미지 포함 여부
-            margin_*: 여백 설정
+            input_path: Input HTML file path
+            output_path: Output PDF file path (if None, saves as .pdf in same location)
+            format: Paper size (A4, Letter, etc.)
+            print_background: Whether to include background colors/images
+            margin_*: Margin settings
             
         Returns:
-            생성된 PDF 파일 경로
+            Generated PDF file path
         """
         input_path = Path(input_path).absolute()
         
         if not input_path.exists():
-            raise FileNotFoundError(f"입력 파일을 찾을 수 없습니다: {input_path}")
+            raise FileNotFoundError(f"Input file not found: {input_path}")
         
         if output_path is None:
             output_path = input_path.with_suffix('.pdf')
         else:
             output_path = Path(output_path).absolute()
         
-        # 출력 디렉토리 생성
+        # Create output directory
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        logger.info(f"HTML → PDF 변환 시작: {input_path}")
+        logger.info(f"HTML -> PDF conversion started: {input_path}")
         
         try:
             with sync_playwright() as p:
-                # Chromium 브라우저 실행
+                # Launch Chromium browser
                 browser = p.chromium.launch()
                 page = browser.new_page()
                 
-                # HTML 파일 로드
+                # Load HTML file
                 page.goto(f"file://{input_path}", wait_until="networkidle")
                 
-                # PDF 생성 (브라우저 Print to PDF와 동일)
+                # Generate PDF (equivalent to browser Print to PDF)
                 page.pdf(
                     path=str(output_path),
                     format=format,
@@ -89,11 +89,11 @@ class HtmlToPdfConverter:
                 
                 browser.close()
             
-            logger.info(f"PDF 변환 완료: {output_path}")
+            logger.info(f"PDF conversion complete: {output_path}")
             return output_path
             
         except Exception as e:
-            logger.error(f"PDF 변환 실패: {e}")
+            logger.error(f"PDF conversion failed: {e}")
             raise
     
     def convert_string(
@@ -104,16 +104,16 @@ class HtmlToPdfConverter:
         print_background: bool = True,
     ) -> Path:
         """
-        HTML 문자열을 PDF로 변환
+        Convert HTML string to PDF
         
         Args:
-            html_string: HTML 문자열
-            output_path: 출력 PDF 파일 경로
-            format: 용지 크기
-            print_background: 배경 포함 여부
+            html_string: HTML string
+            output_path: Output PDF file path
+            format: Paper size
+            print_background: Whether to include background
             
         Returns:
-            생성된 PDF 파일 경로
+            Generated PDF file path
         """
         output_path = Path(output_path).absolute()
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -123,10 +123,10 @@ class HtmlToPdfConverter:
                 browser = p.chromium.launch()
                 page = browser.new_page()
                 
-                # HTML 문자열 설정
+                # Set HTML string
                 page.set_content(html_string, wait_until="networkidle")
                 
-                # PDF 생성
+                # Generate PDF
                 page.pdf(
                     path=str(output_path),
                     format=format,
@@ -139,7 +139,7 @@ class HtmlToPdfConverter:
             return output_path
             
         except Exception as e:
-            logger.error(f"PDF 변환 실패: {e}")
+            logger.error(f"PDF conversion failed: {e}")
             raise
 
 
@@ -148,14 +148,14 @@ def convert_html_to_pdf(
     output_path: Optional[Path] = None
 ) -> Path:
     """
-    HTML 파일을 PDF로 변환하는 편의 함수
+    Convenience function to convert HTML file to PDF
     
     Args:
-        html_path: 입력 HTML 파일 경로
-        output_path: 출력 PDF 파일 경로
+        html_path: Input HTML file path
+        output_path: Output PDF file path
         
     Returns:
-        생성된 PDF 파일 경로
+        Generated PDF file path
     """
     converter = HtmlToPdfConverter()
     return converter.convert(html_path, output_path)

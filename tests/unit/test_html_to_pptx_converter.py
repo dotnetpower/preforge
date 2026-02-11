@@ -1,5 +1,5 @@
 """
-HTML to PPTX converter 테스트
+HTML to PPTX converter tests
 """
 import pytest
 from pathlib import Path
@@ -10,43 +10,43 @@ from preforge.converters.html_to_pptx import HtmlToPptxConverter, convert_html_t
 
 
 class TestHtmlToPptxConverter:
-    """HtmlToPptxConverter 테스트"""
+    """HtmlToPptxConverter tests"""
     
     @pytest.fixture
     def temp_dir(self):
-        """임시 디렉토리 생성"""
+        """Create temporary directory"""
         temp_path = Path(tempfile.mkdtemp())
         yield temp_path
         shutil.rmtree(temp_path)
     
     @pytest.fixture
     def sample_html(self, temp_dir):
-        """샘플 HTML 파일 생성"""
+        """Create sample HTML file"""
         html_content = """
         <!DOCTYPE html>
-        <html lang="ko">
+        <html lang="en">
         <head>
             <meta charset="UTF-8">
-            <title>테스트 문서</title>
+            <title>Test Document</title>
         </head>
         <body>
             <div class="app-header">
-                <div class="header-title">테스트 타이틀</div>
-                <div class="header-subtitle">테스트 부제목</div>
+                <div class="header-title">Test Title</div>
+                <div class="header-subtitle">Test Subtitle</div>
             </div>
             
             <div class="analysis-summary">
                 <div class="summary-section">
-                    <div class="section-header">요약</div>
+                    <div class="section-header">Summary</div>
                     <table class="data-table">
                         <tbody>
                             <tr>
-                                <td>항목1</td>
-                                <td>값1</td>
+                                <td>Item1</td>
+                                <td>Value1</td>
                             </tr>
                             <tr>
-                                <td>항목2</td>
-                                <td>값2</td>
+                                <td>Item2</td>
+                                <td>Value2</td>
                             </tr>
                         </tbody>
                     </table>
@@ -56,7 +56,7 @@ class TestHtmlToPptxConverter:
             <div class="gene-section">
                 <h2 class="gene-title">Gene ABC</h2>
                 <div class="background-text">
-                    이것은 배경 설명입니다.
+                    This is a background description.
                 </div>
             </div>
         </body>
@@ -68,63 +68,63 @@ class TestHtmlToPptxConverter:
         return html_path
     
     def test_converter_initialization(self):
-        """컨버터 초기화 테스트"""
+        """Converter initialization test"""
         converter = HtmlToPptxConverter()
         assert converter is not None
         assert converter.colors is not None
         assert 'primary_red' in converter.colors
     
     def test_convert_basic_html(self, sample_html, temp_dir):
-        """기본 HTML 변환 테스트"""
+        """Basic HTML conversion test"""
         output_path = temp_dir / "output.pptx"
         
         converter = HtmlToPptxConverter()
         converter.convert(sample_html, output_path)
         
-        # 출력 파일이 생성되었는지 확인
+        # Verify output file was created
         assert output_path.exists()
         assert output_path.stat().st_size > 0
     
     def test_convert_html_to_pptx_function(self, sample_html, temp_dir):
-        """편의 함수 테스트"""
+        """Convenience function test"""
         output_path = temp_dir / "output2.pptx"
         
         convert_html_to_pptx(sample_html, output_path)
         
-        # 출력 파일이 생성되었는지 확인
+        # Verify output file was created
         assert output_path.exists()
         assert output_path.stat().st_size > 0
     
     def test_convert_real_file(self, temp_dir):
-        """실제 파일 변환 테스트 (존재하는 경우에만)"""
+        """Real file conversion test (only if file exists)"""
         real_file = Path("private/07_타겟_converted.html")
         
         if not real_file.exists():
-            pytest.skip("실제 HTML 파일이 없습니다")
+            pytest.skip("Real HTML file not found")
         
         output_path = temp_dir / "real_output.pptx"
         
         convert_html_to_pptx(real_file, output_path)
         
-        # 출력 파일이 생성되었는지 확인
+        # Verify output file was created
         assert output_path.exists()
         assert output_path.stat().st_size > 0
     
     def test_clean_text(self):
-        """텍스트 정리 기능 테스트"""
+        """Text cleaning function test"""
         converter = HtmlToPptxConverter()
         
-        # 연속된 공백 제거
+        # Remove consecutive whitespace
         text = "Hello    World"
         cleaned = converter._clean_text(text)
         assert cleaned == "Hello World"
         
-        # 앞뒤 공백 제거
+        # Remove leading/trailing whitespace
         text = "  Hello World  "
         cleaned = converter._clean_text(text)
         assert cleaned == "Hello World"
         
-        # 줄바꿈을 공백으로
+        # Convert newlines to spaces
         text = "Hello\n\nWorld"
         cleaned = converter._clean_text(text)
         assert cleaned == "Hello World"

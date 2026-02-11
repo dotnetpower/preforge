@@ -1,5 +1,5 @@
 """
-데이터 추출 기본 클래스
+Base class for data extraction
 """
 from abc import ABC, abstractmethod
 from typing import Any, List
@@ -8,53 +8,53 @@ from .document import Document, TextContent, TableContent, ImageContent
 
 
 class BaseExtractor(ABC):
-    """모든 추출기의 기본 인터페이스"""
+    """Base interface for all extractors"""
     
     @abstractmethod
     def extract(self, source: Any) -> Any:
         """
-        소스에서 데이터 추출
+        Extract data from source
         
         Args:
-            source: 추출할 데이터 소스
+            source: Data source to extract from
             
         Returns:
-            추출된 데이터
+            Extracted data
         """
         pass
 
 
 class TextExtractor(BaseExtractor):
-    """텍스트 추출기 기본 클래스"""
+    """Base class for text extractors"""
     
     @abstractmethod
     def extract(self, source: Any) -> List[TextContent]:
-        """텍스트 컨텐츠 추출"""
+        """Extract text content"""
         pass
 
 
 class TableExtractor(BaseExtractor):
-    """테이블 추출기 기본 클래스"""
+    """Base class for table extractors"""
     
     @abstractmethod
     def extract(self, source: Any) -> List[TableContent]:
-        """테이블 컨텐츠 추출"""
+        """Extract table content"""
         pass
 
 
 class ImageExtractor(BaseExtractor):
-    """이미지 추출기 기본 클래스"""
+    """Base class for image extractors"""
     
     @abstractmethod
     def extract(self, source: Any) -> List[ImageContent]:
-        """이미지 컨텐츠 추출"""
+        """Extract image content"""
         pass
 
 
 class MetadataExtractor(BaseExtractor):
-    """메타데이터 추출기 기본 클래스"""
+    """Base class for metadata extractors"""
     
     @abstractmethod
     def extract(self, source: Any) -> dict:
-        """메타데이터 추출"""
+        """Extract metadata"""
         pass

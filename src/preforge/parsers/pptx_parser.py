@@ -1,5 +1,5 @@
 """
-PowerPoint 문서(.pptx) 파서
+PowerPoint document (.pptx) parser
 """
 import json
 from pathlib import Path
@@ -22,7 +22,7 @@ from ..core.parser import BaseParser
 
 
 class PptxParser(BaseParser):
-    """PowerPoint 문서 파서"""
+    """PowerPoint document parser"""
 
     def __init__(self, layout_overrides_path: Optional[Path] = None) -> None:
         self._layout_overrides = self._load_layout_overrides(layout_overrides_path)
@@ -36,24 +36,24 @@ class PptxParser(BaseParser):
         return DocumentType.PPTX
     
     def parse(self, file_path: Path) -> Document:
-        """PowerPoint 문서 파싱"""
+        """Parse PowerPoint document"""
         self.validate_file(file_path)
         
         prs = Presentation(file_path)
         
-        # 메타데이터 추출
+        # Extract metadata
         metadata = self._extract_metadata(prs)
         
-        # 텍스트 추출
+        # Extract text
         text_contents = self._extract_text(prs)
         
-        # 테이블 추출
+        # Extract tables
         tables = self._extract_tables(prs)
         
-        # 이미지 추출
+        # Extract images
         images = self._extract_images(prs)
         
-        # 페이지 레이아웃 분석
+        # Analyze page layouts
         page_layouts = self._analyze_page_layouts(prs, text_contents, tables, images)
         
         return Document(
@@ -93,7 +93,7 @@ class PptxParser(BaseParser):
         return overrides
     
     def _extract_metadata(self, prs: Presentation) -> DocumentMetadata:
-        """메타데이터 추출"""
+        """Extract metadata"""
         core_props = prs.core_properties
         
         return DocumentMetadata(
@@ -113,14 +113,14 @@ class PptxParser(BaseParser):
         )
     
     def _extract_text_from_shape(self, shape, slide_idx: int, text_contents: list, is_title: bool = False, parent_top: int = 0, parent_left: int = 0):
-        """사해이프에서 텍스트를 재귀적으로 추출 (GROUP 지원, 절대 좌표 계산)"""
+        """Recursively extract text from shapes (GROUP support, absolute coordinate calculation)"""
         from pptx.enum.shapes import MSO_SHAPE_TYPE
         
-        # 제목 shape는 이미 처리했으므로 스킵
+        # Title shape is already processed, so skip
         if is_title:
             return
         
-        # 현재 shape의 top + 부모의 누적 top = 절대 위치
+        # Current shape's top + parent's cumulative top = absolute position
         try:
             shape_top = (shape.top if hasattr(shape, 'top') else 0) + parent_top
             shape_left = (shape.left if hasattr(shape, 'left') else 0) + parent_left
@@ -128,11 +128,11 @@ class PptxParser(BaseParser):
             shape_top = parent_top
             shape_left = parent_left
         
-        # GROUP인 경우 내부 shape들을 재귀적으로 처리
+        # For GROUP, recursively process inner shapes
         if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
             for sub_shape in shape.shapes:
                 self._extract_text_from_shape(sub_shape, slide_idx, text_contents, False, shape_top, shape_left)
-        # 텍스트가 있는 shape 처리
+        # Process shape with text
         elif hasattr(shape, "text"):
             text = shape.text.strip()
             if text:
@@ -147,70 +147,70 @@ class PptxParser(BaseParser):
                 )
     
     def _extract_text(self, prs: Presentation) -> List[TextContent]:
-        """텍스트 추출"""
+        """Extract text"""
         text_contents = []
         
         for slide_idx, slide in enumerate(prs.slides, 1):
-            # 슬라이드 제목 추출
+            # Extract slide title
             title_shape = None
             if slide.shapes.title:
                 title_shape = slide.shapes.title
                 text_contents.append(
                     TextContent(
                         text=title_shape.text,
-                        level=1,  # 슬라이드 제목은 레벨 1
+                        level=1,  # Slide title is level 1
                         style="Title",
                         page_number=slide_idx,
                     )
                 )
             
-            # shape들을 위치 기준으로 정렬 (top 우선, 같은 줄이면 left)
-            # 제목을 제외한 shape들만 정렬
+            # Sort shapes by position (top first, then left for same line)
+            # Only sort shapes excluding title
             shapes_to_process = []
             for shape in slide.shapes:
                 is_title = (title_shape is not None and shape == title_shape)
                 if not is_title:
                     shapes_to_process.append(shape)
             
-            # 위치 정보가 있는 shape들을 top, left 기준으로 정렬
+            # Sort shapes with position info by top, left
             def get_position(shape):
                 try:
                     return (shape.top, shape.left)
                 except:
-                    # 위치 정보가 없는 경우 큰 값으로 (맨 뒤로)
+                    # For shapes without position info, use large value (put at end)
                     return (999999999, 999999999)
             
             shapes_to_process.sort(key=get_position)
             
-            # 정렬된 순서대로 텍스트 추출 (GROUP 포함, 재귀적)
+            # Extract text in sorted order (including GROUP, recursive)
             for shape in shapes_to_process:
                 self._extract_text_from_shape(shape, slide_idx, text_contents, False, parent_top=0, parent_left=0)
         
         return text_contents
     
     def _extract_tables(self, prs: Presentation) -> List[TableContent]:
-        """테이블 추출"""
+        """Extract tables"""
         from pptx.enum.shapes import MSO_SHAPE_TYPE
         from preforge.core.document import CellImage
         
         tables = []
         
         for slide_idx, slide in enumerate(prs.slides, 1):
-            # 슬라이드의 모든 테이블 shape 찾기
+            # Find all table shapes in the slide
             table_shapes = [s for s in slide.shapes if s.has_table]
             
             for table_shape in table_shapes:
                 table = table_shape.table
                 
-                # 첫 번째 행을 헤더로 간주 (병합된 셀도 포함)
+                # First row is considered header (including merged cells)
                 headers = []
                 for col_idx, cell in enumerate(table.rows[0].cells):
                     if cell.is_spanned:
-                        # 병합된 셀인 경우, 왼쪽으로 가면서 merge_origin 찾기
+                        # For merged cells, find merge_origin going left
                         for prev_col_idx in range(col_idx - 1, -1, -1):
                             prev_cell = table.rows[0].cells[prev_col_idx]
                             if prev_cell.is_merge_origin or not prev_cell.is_spanned:
-                                # 병합된 셀임을 표시하거나 빈 문자열
+                                # Mark as merged cell or empty string
                                 headers.append("")
                                 break
                         else:
@@ -218,17 +218,17 @@ class PptxParser(BaseParser):
                     else:
                         headers.append(cell.text.strip())
                 
-                # 나머지 행을 데이터로 추출 (병합된 셀 처리)
+                # Extract remaining rows as data (handle merged cells)
                 rows = []
                 for row_idx in range(1, len(table.rows)):
                     row = table.rows[row_idx]
                     row_data = []
-                    last_value = {}  # 각 열의 마지막 병합 시작 값 추적
+                    last_value = {}  # Track last merge start value for each column
                     
                     for col_idx, cell in enumerate(row.cells):
                         if cell.is_spanned:
-                            # 병합된 셀인 경우, 같은 열의 이전 병합 시작 값을 찾음
-                            # 위쪽으로 올라가면서 merge_origin인 셀 찾기
+                            # For merged cells, find merge_origin value from same column
+                            # Search upward to find merge_origin cell
                             for prev_row_idx in range(row_idx - 1, -1, -1):
                                 prev_cell = table.rows[prev_row_idx].cells[col_idx]
                                 if prev_cell.is_merge_origin or not prev_cell.is_spanned:
@@ -241,28 +241,28 @@ class PptxParser(BaseParser):
                     
                     rows.append(row_data)
                 
-                # 테이블 셀 내 이미지 찾기
+                # Find images within table cells
                 cell_images = self._find_images_in_table(slide, table_shape, table)
                 
-                # 셀 병합 정보 추출
+                # Extract cell merge information
                 cell_merges = []
                 for row_idx in range(len(table.rows)):
                     for col_idx in range(len(table.columns)):
                         cell = table.rows[row_idx].cells[col_idx]
                         if cell.is_merge_origin:
-                            # 병합 시작 셀 - colspan과 rowspan 계산
+                            # Merge origin cell - calculate colspan and rowspan
                             colspan = 1
                             rowspan = 1
                             
-                            # colspan 계산 (오른쪽으로 병합된 셀 수)
+                            # Calculate colspan (number of merged cells to the right)
                             for c in range(col_idx + 1, len(table.columns)):
                                 if table.rows[row_idx].cells[c].is_spanned:
-                                    # 같은 행에서 오른쪽으로 spanned인지 확인
+                                    # Check if spanned from same row
                                     colspan += 1
                                 else:
                                     break
                             
-                            # rowspan 계산 (아래로 병합된 셀 수)
+                            # Calculate rowspan (number of merged cells downward)
                             for r in range(row_idx + 1, len(table.rows)):
                                 if table.rows[r].cells[col_idx].is_spanned:
                                     rowspan += 1
@@ -277,7 +277,7 @@ class PptxParser(BaseParser):
                                 is_merged=False
                             ))
                         elif cell.is_spanned:
-                            # 병합된 셀의 일부 (표시하지 않음)
+                            # Part of merged cell (do not display)
                             cell_merges.append(CellMerge(
                                 row=row_idx,
                                 col=col_idx,
@@ -299,23 +299,23 @@ class PptxParser(BaseParser):
         return tables
     
     def _find_images_in_table(self, slide, table_shape, table) -> List:
-        """테이블 내부의 이미지 찾기"""
+        """Find images inside table"""
         from pptx.enum.shapes import MSO_SHAPE_TYPE
         from preforge.core.document import CellImage
         
         cell_images = []
         
-        # 각 열의 절대 위치 계산
+        # Calculate absolute position of each column
         col_positions = [table_shape.left]
         for i in range(len(table.columns)):
             col_positions.append(col_positions[-1] + table.columns[i].width)
         
-        # 각 행의 절대 위치 계산
+        # Calculate absolute position of each row
         row_positions = [table_shape.top]
         for i in range(len(table.rows)):
             row_positions.append(row_positions[-1] + table.rows[i].height)
         
-        # 슬라이드의 모든 이미지 찾기 (직접 이미지 + 그룹 내 이미지)
+        # Find all images in slide (direct images + images in groups)
         images_to_check = []
         for shape in slide.shapes:
             if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
@@ -325,26 +325,26 @@ class PptxParser(BaseParser):
                     if sub_shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
                         images_to_check.append(sub_shape)
         
-        # 각 이미지가 테이블 셀에 속하는지 확인
+        # Check if each image belongs to a table cell
         for img in images_to_check:
             img_center_x = img.left + img.width // 2
             img_center_y = img.top + img.height // 2
             
-            # 어느 열에 속하는지 찾기
+            # Find which column it belongs to
             col = -1
             for i in range(len(col_positions) - 1):
                 if col_positions[i] <= img_center_x < col_positions[i + 1]:
                     col = i
                     break
             
-            # 어느 행에 속하는지 찾기
+            # Find which row it belongs to
             row = -1
             for i in range(len(row_positions) - 1):
                 if row_positions[i] <= img_center_y < row_positions[i + 1]:
                     row = i
                     break
             
-            # 테이블 내부에 있는 경우에만 추가
+            # Only add if inside table
             if row >= 0 and col >= 0:
                 try:
                     cell_images.append(
@@ -358,13 +358,13 @@ class PptxParser(BaseParser):
                         )
                     )
                 except Exception:
-                    # 이미지 추출 실패 시 무시
+                    # Ignore if image extraction fails
                     pass
         
         return cell_images
     
     def _is_image_in_table(self, img, tables_info):
-        """이미지가 테이블 내부에 있는지 확인"""
+        """Check if image is inside table"""
         img_center_x = img.left + img.width // 2
         img_center_y = img.top + img.height // 2
         
@@ -372,17 +372,17 @@ class PptxParser(BaseParser):
             table_shape = table_info['shape']
             table = table_info['table']
             
-            # 각 열의 절대 위치 계산
+            # Calculate absolute position of each column
             col_positions = [table_shape.left]
             for i in range(len(table.columns)):
                 col_positions.append(col_positions[-1] + table.columns[i].width)
             
-            # 각 행의 절대 위치 계산
+            # Calculate absolute position of each row
             row_positions = [table_shape.top]
             for i in range(len(table.rows)):
                 row_positions.append(row_positions[-1] + table.rows[i].height)
             
-            # 이미지가 테이블 영역 안에 있는지 확인
+            # Check if image is inside table area
             if (col_positions[0] <= img_center_x < col_positions[-1] and
                 row_positions[0] <= img_center_y < row_positions[-1]):
                 return True
@@ -390,20 +390,20 @@ class PptxParser(BaseParser):
         return False
     
     def _extract_images(self, prs: Presentation) -> List[ImageContent]:
-        """이미지 추출 (재귀적으로 중첩 그룹 탐색, 테이블 내부 이미지는 제외)"""
+        """Extract images (recursively traverse nested groups, exclude table images)"""
         from pptx.enum.shapes import MSO_SHAPE_TYPE
         
         images = []
         
         def extract_from_shape(shape, slide_idx, tables_info, parent_top=0, parent_left=0):
-            """재귀적으로 shape에서 이미지 추출 (절대 좌표 계산)"""
-            # 현재 shape의 top + 부모의 누적 top = 절대 위치
+            """Recursively extract images from shape (absolute coordinate calculation)"""
+            # Current shape's top + parent's cumulative top = absolute position
             shape_top = (shape.top if hasattr(shape, 'top') else 0) + parent_top
             shape_left = (shape.left if hasattr(shape, 'left') else 0) + parent_left
             
             if shape.shape_type == MSO_SHAPE_TYPE.PICTURE:
                 try:
-                    # 테이블 내부의 이미지는 제외
+                    # Exclude images inside tables
                     if not self._is_image_in_table(shape, tables_info):
                         image = shape.image
                         images.append(
@@ -420,8 +420,8 @@ class PptxParser(BaseParser):
                 except Exception:
                     pass
             elif shape.shape_type == MSO_SHAPE_TYPE.GROUP:
-                # GROUP인 경우 하위 shape들을 재귀적으로 탐색
-                # 하위 shape들에게 현재까지의 누적 top을 전달
+                # For GROUP, recursively traverse sub-shapes
+                # Pass cumulative top to sub-shapes
                 try:
                     for sub_shape in shape.shapes:
                         extract_from_shape(sub_shape, slide_idx, tables_info, shape_top, shape_left)
@@ -429,13 +429,13 @@ class PptxParser(BaseParser):
                     pass
         
         for slide_idx, slide in enumerate(prs.slides, 1):
-            # 현재 슬라이드의 모든 테이블 정보 수집
+            # Collect all table info from current slide
             tables_info = []
             for shape in slide.shapes:
                 if shape.has_table:
                     tables_info.append({'shape': shape, 'table': shape.table})
             
-            # 이미지 추출 (테이블 정보 전달)
+            # Extract images (pass table info)
             for shape in slide.shapes:
                 extract_from_shape(shape, slide_idx, tables_info, parent_top=0)
         
@@ -448,34 +448,34 @@ class PptxParser(BaseParser):
         tables: List[TableContent],
         images: List[ImageContent]
     ) -> List[PageLayout]:
-        """페이지별 그리드 레이아웃 분석"""
+        """Analyze grid layout per page"""
         from pptx.enum.shapes import MSO_SHAPE_TYPE
         
         page_layouts = []
         
-        # 색상 팔레트 (시각화용)
+        # Color palette (for visualization)
         colors = [
             '#FFE5E5', '#E5F3FF', '#E5FFE5', '#FFF5E5', '#F5E5FF', '#E5FFFF',
             '#FFD4D4', '#D4E8FF', '#D4FFD4', '#FFEBD4', '#EBD4FF', '#D4FFFF'
         ]
         
         for slide_idx, slide in enumerate(prs.slides, 1):
-            # 슬라이드 크기 (EMU 단위)
+            # Slide size (EMU units)
             slide_width = prs.slide_width
             slide_height = prs.slide_height
             
-            # 하단 90% 이상은 페이지 번호/바닥글로 간주
+            # Bottom 90% or more is considered page number/footer
             footer_threshold = slide_height * 90 // 100
-            # 상단 15% 미만은 제목 영역으로 간주
+            # Top 15% or less is considered title area
             header_threshold = slide_height * 15 // 100
             
-            # 페이지의 모든 컨텐츠 수집 (shapes 직접 분석)
+            # Collect all content from page (directly analyze shapes)
             content_items = []
             from pptx.enum.shapes import MSO_SHAPE_TYPE
             
             for shape in slide.shapes:
                 top = shape.top
-                # 푸터 영역 제외
+                # Exclude footer area
                 if top >= footer_threshold:
                     continue
                 
@@ -498,7 +498,7 @@ class PptxParser(BaseParser):
                         'height': shape.height,
                     })
                 elif shape.has_text_frame and shape.text_frame.text.strip():
-                    # 헤더 영역의 텍스트는 레이아웃 감지에서 제외
+                    # Exclude text in header area from layout detection
                     if top < header_threshold:
                         continue
                     content_items.append({
@@ -520,7 +520,7 @@ class PptxParser(BaseParser):
                     colors,
                 )
             elif not content_items:
-                # 컨텐츠가 없으면 1x1 그리드로 설정
+                # If no content, set as 1x1 grid
                 rows, cols = 1, 1
                 grid_cells = [
                     GridCell(
@@ -531,7 +531,7 @@ class PptxParser(BaseParser):
                     )
                 ]
             else:
-                # 그리드 분석: 컨텐츠 위치 기반으로 행/열 결정
+                # Grid analysis: determine rows/columns based on content positions
                 rows, cols, grid_cells = self._detect_grid_layout(
                     content_items, slide_width, slide_height, colors
                 )
@@ -622,18 +622,18 @@ class PptxParser(BaseParser):
         slide_height: int,
         colors: List[str]
     ) -> tuple:
-        """컨텐츠 배치를 기반으로 그리드 레이아웃 감지
+        """Detect grid layout based on content placement
         
-        원칙:
-        1. 행은 최소화 (대부분 1행)
-        2. 열은 좌우에 명확히 분리된 요소가 있을 때만 2열
-        3. 대칭 레이아웃은 1열로 처리
+        Principles:
+        1. Minimize rows (usually 1 row)
+        2. Only 2 columns when elements are clearly separated left and right
+        3. Symmetric layouts are treated as 1 column
         """
         
         if not content_items:
             return 1, 1, []
         
-        # 헤더 영역(상단 15%) 제외한 본문 요소만 분석
+        # Exclude header area (top 15%), analyze only body elements
         header_threshold = slide_height * 15 // 100
         body_items = [item for item in content_items if item['top'] > header_threshold]
         
@@ -642,26 +642,26 @@ class PptxParser(BaseParser):
         
         mid_x = slide_width // 2
         
-        # 좌우 분류
+        # Left/right classification
         left_items = [item for item in body_items 
                      if (item['left'] + item['width'] // 2) < mid_x]
         right_items = [item for item in body_items 
                       if (item['left'] + item['width'] // 2) >= mid_x]
         
-        # 열 결정
+        # Determine columns
         cols = 1
         
         if left_items and right_items:
-            # 양쪽에 요소가 있는 경우
+            # Elements on both sides
             
-            # 엄격한 대칭 패턴 확인 (양쪽 요소 수가 동일하고 위치도 대칭)
+            # Check for strict symmetry pattern (same number of elements on both sides with symmetric positions)
             if self._is_symmetric_layout(left_items, right_items, slide_height):
                 cols = 1
             else:
-                # 기본적으로 좌우에 요소가 있으면 2열
+                # By default, 2 columns if elements exist on both sides
                 cols = 2
         
-        # 행 결정: 기본적으로 1행
+        # Determine rows: default is 1 row
         rows = 1
         
         return self._build_grid_cells(
@@ -674,26 +674,26 @@ class PptxParser(BaseParser):
         right_items: List[dict], 
         slide_height: int
     ) -> bool:
-        """좌우 대칭 레이아웃인지 확인 (목차, 그리드 등)
+        """Check if layout is left-right symmetric (table of contents, grid, etc.)
         
-        조건:
-        1. 양쪽에 각각 3개 이상 요소가 있어야 함
-        2. 양쪽 요소 수 차이가 2개 이하
-        3. y 위치가 비슷한 쌍이 많아야 함
+        Conditions:
+        1. Must have 3 or more elements on each side
+        2. Difference in element count between sides must be 2 or less
+        3. Many pairs should have similar y positions
         """
-        # 양쪽에 충분한 요소가 있어야 대칭 판단
+        # Need sufficient elements on both sides to determine symmetry
         if len(left_items) < 3 or len(right_items) < 3:
             return False
         
-        # 양쪽 요소 수 차이가 너무 크면 대칭 아님
+        # If difference in element count is too large, not symmetric
         if abs(len(left_items) - len(right_items)) > 2:
             return False
         
-        # y 위치 매칭 확인
+        # Check y position matching
         left_tops = sorted([item['top'] for item in left_items])
         right_tops = sorted([item['top'] for item in right_items])
         
-        # 비슷한 y 위치의 쌍 찾기
+        # Find pairs with similar y positions
         matches = 0
         used_right = set()
         for lt in left_tops:
@@ -703,11 +703,11 @@ class PptxParser(BaseParser):
                     used_right.add(i)
                     break
         
-        # 70% 이상 매칭되면 대칭
+        # If 70% or more match, it's symmetric
         min_items = min(len(left_tops), len(right_tops))
         return matches >= min_items * 0.7
         for lt, rt in zip(left_tops, right_tops):
-            if abs(lt - rt) > slide_height * 0.08:  # 8% 허용
+            if abs(lt - rt) > slide_height * 0.08:  # 8% tolerance
                 return False
         
         return True
@@ -719,7 +719,7 @@ class PptxParser(BaseParser):
         slide_height: int,
         colors: List[str]
     ) -> tuple:
-        """1x1 그리드 생성"""
+        """Create 1x1 grid"""
         cell = GridCell(
             row=0,
             col=0,
@@ -741,7 +741,7 @@ class PptxParser(BaseParser):
         slide_height: int,
         colors: List[str]
     ) -> tuple:
-        """행/열 수에 맞는 그리드 셀 생성"""
+        """Create grid cells matching row/column count"""
         row_height = slide_height // rows
         col_width = slide_width // cols
         
@@ -758,7 +758,7 @@ class PptxParser(BaseParser):
                 col_right = (c + 1) * col_width if c < cols - 1 else slide_width
                 actual_col_width = col_right - col_left
                 
-                # 이 셀에 속하는 컨텐츠 찾기
+                # Find content belonging to this cell
                 cell_contents = []
                 for item in content_items:
                     item_center_x = item['left'] + item['width'] // 2

@@ -1,4 +1,4 @@
-"""파서 상세 검증 테스트 - 결과를 마크다운으로 저장"""
+"""Parser detailed verification tests - save results to markdown"""
 import pytest
 from pathlib import Path
 from datetime import datetime
@@ -7,20 +7,20 @@ from preforge.parsers import DocxParser, PptxParser, PdfParser, HtmlParser
 from preforge.core.document import Document
 
 
-# 테스트 문서 경로
+# Test document path
 PRIVATE_DIR = Path(__file__).parent.parent.parent / "private"
 OUTPUT_DIR = Path(__file__).parent.parent.parent / "private" / "parsing_results"
 
 
 def save_parsing_result_to_markdown(doc: Document, folder_name: str):
     """
-    파싱 결과를 폴더 구조로 저장
+    Save parsing results to folder structure
     
     Args:
-        doc: 파싱된 문서
-        folder_name: 결과를 저장할 폴더명
+        doc: Parsed document
+        folder_name: Folder name to save results
     
-    폴더 구조:
+    Folder structure:
         parsing_results/
             {folder_name}/
                 parsing_result.md
@@ -29,53 +29,53 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                     image_002.png
                     ...
     """
-    # 출력 폴더 생성
+    # Create output folder
     output_folder = OUTPUT_DIR / folder_name
     output_folder.mkdir(exist_ok=True, parents=True)
     
-    # 이미지 폴더 생성
+    # Create image folder
     img_folder = output_folder / "img"
     if doc.images:
         img_folder.mkdir(exist_ok=True)
     
-    # 마크다운 파일 경로
+    # Markdown file path
     md_path = output_folder / "parsing_result.md"
     
     with open(md_path, "w", encoding="utf-8") as f:
-        # 헤더
-        f.write(f"# 문서 파싱 결과\n\n")
-        f.write(f"**파일명:** {doc.file_path.name}\n\n")
-        f.write(f"**문서 타입:** {doc.doc_type.value}\n\n")
-        f.write(f"**파싱 일시:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+        # Header
+        f.write(f"# Document Parsing Result\n\n")
+        f.write(f"**Filename:** {doc.file_path.name}\n\n")
+        f.write(f"**Document Type:** {doc.doc_type.value}\n\n")
+        f.write(f"**Parsing Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
         f.write("---\n\n")
         
-        # 메타데이터
-        f.write("## 📋 메타데이터\n\n")
-        f.write(f"- **제목:** {doc.metadata.title or 'N/A'}\n")
-        f.write(f"- **작성자:** {doc.metadata.author or 'N/A'}\n")
-        f.write(f"- **생성일:** {doc.metadata.created_at or 'N/A'}\n")
-        f.write(f"- **수정일:** {doc.metadata.modified_at or 'N/A'}\n")
-        f.write(f"- **주제:** {doc.metadata.subject or 'N/A'}\n")
-        f.write(f"- **키워드:** {', '.join(doc.metadata.keywords) if doc.metadata.keywords else 'N/A'}\n")
-        f.write(f"- **페이지 수:** {doc.metadata.page_count or 'N/A'}\n")
-        f.write(f"- **단어 수:** {doc.metadata.word_count or 'N/A'}\n\n")
+        # Metadata
+        f.write("## 📋 Metadata\n\n")
+        f.write(f"- **Title:** {doc.metadata.title or 'N/A'}\n")
+        f.write(f"- **Author:** {doc.metadata.author or 'N/A'}\n")
+        f.write(f"- **Created Date:** {doc.metadata.created_at or 'N/A'}\n")
+        f.write(f"- **Modified Date:** {doc.metadata.modified_at or 'N/A'}\n")
+        f.write(f"- **Subject:** {doc.metadata.subject or 'N/A'}\n")
+        f.write(f"- **Keywords:** {', '.join(doc.metadata.keywords) if doc.metadata.keywords else 'N/A'}\n")
+        f.write(f"- **Page Count:** {doc.metadata.page_count or 'N/A'}\n")
+        f.write(f"- **Word Count:** {doc.metadata.word_count or 'N/A'}\n\n")
         
         if doc.metadata.properties:
-            f.write("### 추가 속성\n\n")
+            f.write("### Additional Properties\n\n")
             for key, value in doc.metadata.properties.items():
                 f.write(f"- **{key}:** {value}\n")
             f.write("\n")
         
-        # 통계
-        f.write("## 📊 문서 통계\n\n")
-        f.write(f"- **전체 텍스트 블록 수:** {len(doc.text_contents)}\n")
-        f.write(f"- **제목 수:** {len([tc for tc in doc.text_contents if tc.level > 0])}\n")
-        f.write(f"- **본문 블록 수:** {len([tc for tc in doc.text_contents if tc.level == 0])}\n")
-        f.write(f"- **테이블 수:** {len(doc.tables)}\n")
-        f.write(f"- **이미지 수:** {len(doc.images)}\n")
-        f.write(f"- **전체 텍스트 길이:** {len(doc.full_text)} 자\n\n")
+        # Statistics
+        f.write("## 📊 Document Statistics\n\n")
+        f.write(f"- **Total text block count:** {len(doc.text_contents)}\n")
+        f.write(f"- **Heading count:** {len([tc for tc in doc.text_contents if tc.level > 0])}\n")
+        f.write(f"- **Body block count:** {len([tc for tc in doc.text_contents if tc.level == 0])}\n")
+        f.write(f"- **Table count:** {len(doc.tables)}\n")
+        f.write(f"- **Image count:** {len(doc.images)}\n")
+        f.write(f"- **Total text length:** {len(doc.full_text)} characters\n\n")
         
-        # 페이지별 구조 (페이지 번호가 있는 경우)
+        # Page structure (if page numbers exist)
         page_groups = {}
         for tc in doc.text_contents:
             if tc.page_number:
@@ -84,25 +84,25 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                 page_groups[tc.page_number].append(tc)
         
         if page_groups:
-            f.write("## 📄 페이지별 구조\n\n")
+            f.write("## 📄 Page Structure\n\n")
             for page_num in sorted(page_groups.keys()):
                 texts = page_groups[page_num]
-                f.write(f"### 페이지 {page_num}\n\n")
-                f.write(f"- 텍스트 블록 수: {len(texts)}\n")
-                f.write(f"- 제목: {len([t for t in texts if t.level > 0])}개\n")
-                f.write(f"- 본문: {len([t for t in texts if t.level == 0])}개\n\n")
+                f.write(f"### Page {page_num}\n\n")
+                f.write(f"- Text block count: {len(texts)}\n")
+                f.write(f"- Headings: {len([t for t in texts if t.level > 0])}\n")
+                f.write(f"- Body: {len([t for t in texts if t.level == 0])}\n\n")
         
-        # 제목 구조
+        # Heading structure
         headings = [tc for tc in doc.text_contents if tc.level > 0]
         if headings:
-            f.write("## 📑 제목 구조\n\n")
+            f.write("## 📑 Heading Structure\n\n")
             for i, heading in enumerate(headings, 1):
                 indent = "  " * (heading.level - 1)
-                page_info = f" (페이지 {heading.page_number})" if heading.page_number else ""
+                page_info = f" (Page {heading.page_number})" if heading.page_number else ""
                 f.write(f"{i}. {indent}**[H{heading.level}]** {heading.text}{page_info}\n")
             f.write("\n")
         
-        # 이미지를 페이지별로 그룹화
+        # Group images by page
         image_groups = {}
         for i, image in enumerate(doc.images, 1):
             if image.page_number:
@@ -110,7 +110,7 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                     image_groups[image.page_number] = []
                 image_groups[image.page_number].append((i, image))
         
-        # 테이블을 페이지별로 그룹화
+        # Group tables by page
         table_groups = {}
         for i, table in enumerate(doc.tables, 1):
             if table.page_number:
@@ -118,16 +118,16 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                     table_groups[table.page_number] = []
                 table_groups[table.page_number].append((i, table))
         
-        # 페이지 레이아웃 정보 (PPTX인 경우)
+        # Page layout info (for PPTX)
         if doc.page_layouts:
-            f.write("## 🎨 페이지 레이아웃 분석\n\n")
-            f.write("각 페이지의 그리드 레이아웃을 분석한 결과입니다. 컨텐츠 배치를 기반으로 1-3행, 1-3열의 그리드로 구성됩니다.\n\n")
+            f.write("## 🎨 Page Layout Analysis\n\n")
+            f.write("Analysis of grid layout for each page. Grid is configured with 1-3 rows and 1-3 columns based on content placement.\n\n")
             
             for layout in doc.page_layouts:
-                f.write(f"### 페이지 {layout.page_number} 레이아웃\n\n")
-                f.write(f"**그리드 구성:** {layout.rows}행 x {layout.cols}열\n\n")
+                f.write(f"### Page {layout.page_number} Layout\n\n")
+                f.write(f"**Grid Configuration:** {layout.rows} rows x {layout.cols} cols\n\n")
                 
-                # YAML 형태로 레이아웃 정보 표시
+                # Display layout info in YAML format
                 f.write("```yaml\n")
                 f.write(f"page: {layout.page_number}\n")
                 f.write(f"layout:\n")
@@ -157,12 +157,12 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                 
                 f.write("```\n\n")
                 
-                # 시각화: 컬러 박스로 그리드 표시
-                f.write("**그리드 시각화:**\n\n")
+                # Visualization: Display grid with color boxes
+                f.write("**Grid Visualization:**\n\n")
                 f.write('<div style="position:relative; width:100%; max-width:800px; aspect-ratio:16/9; border:2px solid #333; margin:20px 0;">\n')
                 
                 for cell in layout.grid_cells:
-                    # EMU를 퍼센트로 변환
+                    # Convert EMU to percent
                     left_pct = (cell.left / layout.slide_width) * 100
                     top_pct = (cell.top / layout.slide_height) * 100
                     width_pct = (cell.width / layout.slide_width) * 100
@@ -188,17 +188,17 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                 f.write('</div>\n\n')
                 f.write("---\n\n")
         
-        # 전체 텍스트 내용 (페이지별로 구분)
-        f.write("## 📝 전체 텍스트 내용\n\n")
+        # Full text content (separated by page)
+        f.write("## 📝 Full Text Content\n\n")
         
         if page_groups:
             for page_num in sorted(page_groups.keys()):
-                f.write(f"### 페이지 {page_num}\n\n")
+                f.write(f"### Page {page_num}\n\n")
                 
-                # 텍스트, 이미지, 테이블을 위치 기준으로 통합 정렬
+                # Merge and sort text, images, tables by position
                 page_elements = []
                 
-                # 텍스트 추가
+                # Add text
                 for tc in page_groups[page_num]:
                     page_elements.append({
                         'type': 'text',
@@ -207,7 +207,7 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                         'content': tc
                     })
                 
-                # 이미지 추가
+                # Add images
                 if page_num in image_groups:
                     for img_num, image in image_groups[page_num]:
                         page_elements.append({
@@ -218,7 +218,7 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                             'content': image
                         })
                 
-                # 테이블 추가
+                # Add tables
                 if page_num in table_groups:
                     for table_num, table in table_groups[page_num]:
                         page_elements.append({
@@ -229,27 +229,27 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                             'content': table
                         })
                 
-                # 2열 레이아웃을 고려한 정렬 (PPTX만 해당)
+                # Sort considering 2-column layout (PPTX only)
                 if doc.doc_type.name == 'PPTX':
-                    # PPTX 슬라이드 너비 (표준 16:9 슬라이드, EMU 단위)
+                    # PPTX slide width (standard 16:9 slide, EMU units)
                     slide_width = 9144000
                     mid_point = slide_width // 2
                     
-                    # 좌/우 열로 분류
+                    # Classify into left/right columns
                     left_column = [e for e in page_elements if e['left'] < mid_point]
                     right_column = [e for e in page_elements if e['left'] >= mid_point]
                     
-                    # 각 열 내에서 top으로 정렬
+                    # Sort by top within each column
                     left_column.sort(key=lambda x: x['position'])
                     right_column.sort(key=lambda x: x['position'])
                     
-                    # 좌측 열 → 우측 열 순서로 병합
+                    # Merge in order: left column -> right column
                     page_elements = left_column + right_column
                 else:
-                    # 다른 문서 타입은 position만으로 정렬
+                    # For other document types, sort by position only
                     page_elements.sort(key=lambda x: x['position'])
                 
-                # 정렬된 순서대로 출력
+                # Output in sorted order
                 for elem in page_elements:
                     if elem['type'] == 'text':
                         tc = elem['content']
@@ -262,30 +262,30 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                         img_num = elem['img_num']
                         image = elem['content']
                         img_filename = f"image_{img_num:03d}.{image.format}"
-                        f.write(f"<img src='img/{img_filename}' alt='이미지 {img_num}' style='max-width:600px;' />\n\n")
-                        f.write(f"*이미지 {img_num}: {image.format.upper()} ({image.width} x {image.height})*\n\n")
+                        f.write(f"<img src='img/{img_filename}' alt='Image {img_num}' style='max-width:600px;' />\n\n")
+                        f.write(f"*Image {img_num}: {image.format.upper()} ({image.width} x {image.height})*\n\n")
                     
                     elif elem['type'] == 'table':
                         table_num = elem['table_num']
                         table = elem['content']
-                        f.write(f"\n**📊 테이블 {table_num}**")
+                        f.write(f"\n**📊 Table {table_num}**")
                         if table.caption:
                             f.write(f" - {table.caption}")
-                        f.write(f" ({len(table.headers)}열 x {len(table.rows)}행)\n\n")
+                        f.write(f" ({len(table.headers)} cols x {len(table.rows)} rows)\n\n")
                         
-                        # 테이블 셀 내 이미지가 있는 경우 먼저 저장
+                        # If table cell contains images, save them first
                         cell_image_map = {}  # {(row, col): img_filename}
-                        saved_images = {}  # {embed_id: filename} - 고유 이미지 저장
+                        saved_images = {}  # {embed_id: filename} - save unique images
                         
                         if table.cell_images:
-                            # 1단계: 고유 이미지를 파일로 저장
-                            seen_data_hashes = set()  # 데이터 해시로 중복 체크
+                            # Step 1: Save unique images to files
+                            seen_data_hashes = set()  # Check duplicates by data hash
                             for idx, cell_img in enumerate(table.cell_images):
-                                # embed_id가 있으면 사용, 없으면 데이터 해시 사용
+                                # Use embed_id if available, otherwise use data hash
                                 if cell_img.embed_id:
                                     unique_key = cell_img.embed_id
                                 else:
-                                    # 데이터 해시로 중복 체크
+                                    # Check duplicates by data hash
                                     import hashlib
                                     unique_key = hashlib.md5(cell_img.data).hexdigest()
                                 
@@ -297,42 +297,42 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                                             img_file.write(cell_img.data)
                                         saved_images[unique_key] = img_filename
                                     except Exception as e:
-                                        print(f"⚠️ 테이블 이미지 저장 실패: {e}")
+                                        print(f"⚠️ Failed to save table image: {e}")
                             
-                            # 2단계: 각 행에 적절한 이미지 매핑 (saved_images가 있는 경우에만)
+                            # Step 2: Map appropriate images to each row (only if saved_images exist)
                             if saved_images:
-                                # 3개 이미지를 순환하며 각 2개 행마다 할당
+                                # Cycle through 3 images, assign different image every 2 rows
                                 image_list = list(saved_images.items())
                                 for row_idx in range(1, len(table.rows) + 1):
-                                    # 각 2개 행마다 다른 이미지 선택
+                                    # Select different image every 2 rows
                                     img_idx = ((row_idx - 1) // 2) % len(image_list)
                                     embed_id, filename = image_list[img_idx]
                                     
-                                    # 이미지가 있는 셀 위치 찾기 (일반적으로 마지막 열)
+                                    # Find cell position with image (usually last column)
                                     col_idx = len(table.headers) - 1
                                     cell_image_map[(row_idx, col_idx)] = filename
                         
-                        # 셀 병합 정보를 딕셔너리로 변환
+                        # Convert cell merge info to dictionary
                         merge_map = {}  # {(row, col): {'colspan': n, 'rowspan': m, 'skip': bool}}
                         if table.cell_merges:
                             for merge in table.cell_merges:
                                 if merge.is_merged:
-                                    # 병합된 셀의 일부 - 표시하지 않음
+                                    # Part of merged cell - do not display
                                     merge_map[(merge.row, merge.col)] = {'skip': True}
                                 else:
-                                    # 병합 시작 셀
+                                    # Merge start cell
                                     merge_map[(merge.row, merge.col)] = {
                                         'colspan': merge.colspan,
                                         'rowspan': merge.rowspan,
                                         'skip': False
                                     }
                         
-                        # HTML 테이블로 렌더링 (모든 테이블에 적용)
-                        # 1. 같은 값이 연속되는 셀 감지하여 rowspan 계산
+                        # Render as HTML table (apply to all tables)
+                        # 1. Detect consecutive cells with same value and calculate rowspan
                         visual_merges = {}  # {(row, col): rowspan}
-                        skip_cells = set()  # 병합으로 스킵할 셀
+                        skip_cells = set()  # Cells to skip due to merge
                         
-                        # 각 열에 대해 연속된 같은 값 찾기
+                        # Find consecutive same values for each column
                         for col_idx in range(len(table.headers)):
                             row_idx = 1
                             while row_idx <= len(table.rows):
@@ -342,7 +342,7 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                                 current_value = table.rows[row_idx - 1][col_idx] if row_idx <= len(table.rows) else ""
                                 span_count = 1
                                 
-                                # 같은 값이 연속되는지 확인
+                                # Check if same value continues
                                 next_row = row_idx + 1
                                 while next_row <= len(table.rows):
                                     next_value = table.rows[next_row - 1][col_idx]
@@ -358,17 +358,17 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                                 
                                 row_idx = next_row
                         
-                        # 2. cell_images에서 실제 위치 정보를 사용하여 이미지 배치
+                        # 2. Place images using actual position info from cell_images
                         image_cells = {}  # {row: (img_filename, caption, col)}
                         if saved_images and table.cell_images:
-                            # 이미지 캡션 (DOCX 기준)
+                            # Image captions (based on DOCX)
                             captions = [
                                 "Lyme disease rash",
                                 "Southern tick-associated<br>rash illness",
                                 "Late rash of<br>Spotted fever"
                             ]
                             
-                            # cell_images에서 고유 이미지 추출 (중복 제거)
+                            # Extract unique images from cell_images (remove duplicates)
                             unique_positions = []  # [(row, col, data_hash)]
                             seen_hashes = {}  # {data_hash: (row, col)}
                             
@@ -380,18 +380,18 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                                     seen_hashes[data_hash] = (cell_img.row, cell_img.col)
                                     unique_positions.append((cell_img.row, cell_img.col, data_hash))
                             
-                            # 저장된 이미지 파일 목록
+                            # List of saved image files
                             image_list = list(saved_images.values())
                             
-                            # DOCX의 경우: 모든 이미지가 같은 셀에 있으면 원본 배치 사용
+                            # For DOCX: If all images are in same cell, use original placement
                             all_same_position = len(set((r, c) for r, c, _ in unique_positions)) == 1
                             
                             if all_same_position and len(unique_positions) == 3:
-                                # DOCX 원본 배치: row 1-3, row 5-7, row 9-10
+                                # DOCX original placement: row 1-3, row 5-7, row 9-10
                                 image_positions = [
-                                    (1, 3, 3),   # 이미지 1: row 1, col 3, rowspan 3
-                                    (5, 3, 3),   # 이미지 2: row 5, col 3, rowspan 3
-                                    (9, 2, 3),   # 이미지 3: row 9, col 3, rowspan 2
+                                    (1, 3, 3),   # Image 1: row 1, col 3, rowspan 3
+                                    (5, 3, 3),   # Image 2: row 5, col 3, rowspan 3
+                                    (9, 2, 3),   # Image 3: row 9, col 3, rowspan 2
                                 ]
                                 for img_idx, img_filename in enumerate(image_list):
                                     if img_idx < len(image_positions) and img_idx < len(captions):
@@ -405,23 +405,23 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                                                     if skip_row <= len(table.rows):
                                                         skip_cells.add((skip_row, col))
                             else:
-                                # PPTX 또는 일반: cell_images의 실제 위치 사용
+                                # PPTX or general: Use actual position from cell_images
                                 for img_idx, (row, col, _) in enumerate(unique_positions):
                                     if img_idx < len(image_list):
                                         img_filename = image_list[img_idx]
                                         caption = captions[img_idx] if img_idx < len(captions) else ""
                                         
-                                        # 이미지가 헤더가 아닌 데이터 행에 있는 경우
-                                        table_row = row  # cell_images의 row는 0-based (헤더 포함)
-                                        if table_row >= 1:  # 헤더 행 제외
+                                        # If image is in data row, not header
+                                        table_row = row  # cell_images row is 0-based (including header)
+                                        if table_row >= 1:  # Exclude header row
                                             image_cells[table_row] = (img_filename, caption, col)
                                             
-                                            # rowspan 계산: 다음 이미지 행까지 또는 테이블 끝까지
+                                            # Calculate rowspan: until next image row or end of table
                                             if img_idx + 1 < len(unique_positions):
                                                 next_row = unique_positions[img_idx + 1][0]
                                                 rowspan = next_row - row
                                             else:
-                                                # 마지막 이미지: 테이블 끝까지
+                                                # Last image: until end of table
                                                 rowspan = len(table.rows) + 1 - row
                                             
                                             if rowspan > 1:
@@ -430,7 +430,7 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                                                     if skip_row <= len(table.rows):
                                                         skip_cells.add((skip_row, col))
                         
-                        # 3. HTML 테이블 생성
+                        # 3. Generate HTML table
                         f.write("<table>\n<thead>\n<tr>\n")
                         skip_cols = set()
                         for col_idx, header in enumerate(table.headers):
@@ -456,14 +456,14 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                         for row_idx, row in enumerate(table.rows[:10], 1):
                             f.write("<tr>\n")
                             for col_idx, cell_text in enumerate(row):
-                                # 병합으로 스킵해야 하는 셀인지 확인
+                                # Check if cell should be skipped due to merge
                                 if (row_idx, col_idx) in skip_cells:
                                     continue
                                 
-                                # 셀 속성 설정
+                                # Set cell attributes
                                 attrs = []
                                 
-                                # visual merge (같은 값 연속)
+                                # Visual merge (consecutive same values)
                                 if (row_idx, col_idx) in visual_merges:
                                     rowspan = visual_merges[(row_idx, col_idx)]
                                     if rowspan > 1:
@@ -471,10 +471,10 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                                 
                                 attr_str = ' ' + ' '.join(attrs) if attrs else ''
                                 
-                                # 셀 내용
+                                # Cell content
                                 cell_content = cell_text.replace('\n', '<br>')
                                 
-                                # 이미지가 있는 셀인지 확인 (image_cells는 {row: (filename, caption, col)} 형식)
+                                # Check if cell contains image (image_cells format: {row: (filename, caption, col)})
                                 if row_idx in image_cells:
                                     img_filename, caption, img_col = image_cells[row_idx]
                                     if col_idx == img_col:
@@ -486,432 +486,432 @@ def save_parsing_result_to_markdown(doc: Document, folder_name: str):
                         f.write("</tbody>\n</table>\n\n")
                         
                         if len(table.rows) > 10:
-                            f.write(f"\n*(총 {len(table.rows)}행 중 10행만 표시)*\n\n")
+                            f.write(f"\n*(Showing only 10 of {len(table.rows)} rows)*\n\n")
                         else:
                             f.write("\n")
                 
                 f.write("---\n\n")
         else:
-            # 페이지 정보가 없는 경우
+            # When page info is not available
             for tc in doc.text_contents:
                 if tc.level > 0:
                     f.write(f"{'#' * (tc.level + 2)} {tc.text}\n\n")
                 else:
                     f.write(f"{tc.text}\n\n")
         
-        # 테이블
+        # Tables
         if doc.tables:
-            f.write("## 📊 테이블\n\n")
+            f.write("## 📊 Tables\n\n")
             for i, table in enumerate(doc.tables, 1):
-                page_info = f" (페이지 {table.page_number})" if table.page_number else ""
-                f.write(f"### 테이블 {i}{page_info}\n\n")
+                page_info = f" (Page {table.page_number})" if table.page_number else ""
+                f.write(f"### Table {i}{page_info}\n\n")
                 
                 if table.caption:
-                    f.write(f"**캡션:** {table.caption}\n\n")
+                    f.write(f"**Caption:** {table.caption}\n\n")
                 
-                f.write(f"**크기:** {len(table.headers)} 열 x {len(table.rows)} 행\n\n")
+                f.write(f"**Size:** {len(table.headers)} cols x {len(table.rows)} rows\n\n")
                 
-                # 마크다운 테이블 형식으로 출력 (줄바꿈을 <br>로 변환)
+                # Output as markdown table format (convert newlines to <br>)
                 if table.headers:
                     headers_clean = [h.replace('\n', '<br>') for h in table.headers]
                     f.write("| " + " | ".join(headers_clean) + " |\n")
                     f.write("| " + " | ".join(["---"] * len(table.headers)) + " |\n")
                 
-                for row in table.rows[:10]:  # 최대 10행만 표시
+                for row in table.rows[:10]:  # Show maximum 10 rows
                     row_clean = [cell.replace('\n', '<br>') for cell in row]
                     f.write("| " + " | ".join(row_clean) + " |\n")
                 
                 if len(table.rows) > 10:
-                    f.write(f"\n*(총 {len(table.rows)}행 중 10행만 표시)*\n\n")
+                    f.write(f"\n*(Showing only 10 of {len(table.rows)} rows)*\n\n")
                 else:
                     f.write("\n")
         
-        # 이미지 저장 및 참조
+        # Save images and add references
         if doc.images:
-            f.write("## 🖼️ 이미지\n\n")
+            f.write("## 🖼️ Images\n\n")
             for i, image in enumerate(doc.images, 1):
-                # 이미지 파일명 생성 (3자리 숫자 + 확장자)
+                # Generate image filename (3-digit number + extension)
                 img_filename = f"image_{i:03d}.{image.format}"
                 img_path = img_folder / img_filename
                 
-                # 이미지 데이터 저장
+                # Save image data
                 try:
                     with open(img_path, "wb") as img_file:
                         img_file.write(image.data)
                 except Exception as e:
-                    print(f"⚠️ 이미지 {i} 저장 실패: {e}")
+                    print(f"⚠️ Failed to save image {i}: {e}")
                 
-                # 마크다운에 이미지 정보 및 참조 추가
-                page_info = f" (페이지 {image.page_number})" if image.page_number else ""
-                f.write(f"### 이미지 {i}{page_info}\n\n")
+                # Add image info and reference to markdown
+                page_info = f" (Page {image.page_number})" if image.page_number else ""
+                f.write(f"### Image {i}{page_info}\n\n")
                 
                 if image.caption:
-                    f.write(f"**캡션:** {image.caption}\n\n")
+                    f.write(f"**Caption:** {image.caption}\n\n")
                 
-                f.write(f"- **파일:** `{img_filename}`\n")
-                f.write(f"- **형식:** {image.format}\n")
-                f.write(f"- **크기:** {image.width or 'N/A'} x {image.height or 'N/A'}\n")
-                f.write(f"- **데이터 크기:** {len(image.data)} bytes\n\n")
+                f.write(f"- **File:** `{img_filename}`\n")
+                f.write(f"- **Format:** {image.format}\n")
+                f.write(f"- **Size:** {image.width or 'N/A'} x {image.height or 'N/A'}\n")
+                f.write(f"- **Data size:** {len(image.data)} bytes\n\n")
                 
-                # 이미지 미리보기 (상대 경로)
-                f.write(f"<img src='img/{img_filename}' alt='이미지 {i}' style='max-width:600px;' />\n\n")
+                # Image preview (relative path)
+                f.write(f"<img src='img/{img_filename}' alt='Image {i}' style='max-width:600px;' />\n\n")
         
-        # 전체 텍스트 미리보기
-        f.write("## 📄 전체 텍스트 미리보기 (처음 2000자)\n\n")
+        # Full text preview
+        f.write("## 📄 Full Text Preview (first 2000 characters)\n\n")
         f.write("```\n")
         f.write(doc.full_text[:2000])
         if len(doc.full_text) > 2000:
-            f.write(f"\n\n... (총 {len(doc.full_text)}자 중 2000자만 표시)\n")
+            f.write(f"\n\n... (Showing only 2000 of {len(doc.full_text)} characters)\n")
         f.write("\n```\n")
     
     return md_path
 
 
 class TestDetailedParsing:
-    """상세 파싱 검증 테스트"""
+    """Detailed parsing verification tests"""
     
     def setup_method(self):
-        """테스트 전 출력 디렉토리 생성"""
+        """Create output directory before tests"""
         OUTPUT_DIR.mkdir(exist_ok=True)
     
     def test_pdf_detailed_parsing(self):
-        """PDF 상세 파싱 테스트"""
+        """PDF detailed parsing test"""
         parser = PdfParser()
         pdf_file = PRIVATE_DIR / "02_질병의이해-malaria.report.pdf"
         
         if not pdf_file.exists():
-            pytest.skip(f"테스트 파일이 존재하지 않습니다: {pdf_file}")
+            pytest.skip(f"Test file does not exist: {pdf_file}")
         
         print(f"\n{'='*60}")
-        print(f"PDF 파싱 시작: {pdf_file.name}")
+        print(f"PDF parsing started: {pdf_file.name}")
         print(f"{'='*60}\n")
         
         doc = parser.parse(pdf_file)
         
-        # 상세 정보 출력
-        print(f"메타데이터:")
-        print(f"  - 제목: {doc.metadata.title}")
-        print(f"  - 페이지 수: {doc.metadata.page_count}")
-        print(f"\n통계:")
-        print(f"  - 텍스트 블록: {len(doc.text_contents)}개")
-        print(f"  - 제목: {len([tc for tc in doc.text_contents if tc.level > 0])}개")
-        print(f"  - 테이블: {len(doc.tables)}개")
-        print(f"  - 이미지: {len(doc.images)}개")
+        # Print detailed info
+        print(f"Metadata:")
+        print(f"  - Title: {doc.metadata.title}")
+        print(f"  - Page count: {doc.metadata.page_count}")
+        print(f"\nStatistics:")
+        print(f"  - Text blocks: {len(doc.text_contents)}")
+        print(f"  - Headings: {len([tc for tc in doc.text_contents if tc.level > 0])}")
+        print(f"  - Tables: {len(doc.tables)}")
+        print(f"  - Images: {len(doc.images)}")
         
-        # 첫 3페이지 미리보기
-        print(f"\n첫 3페이지 텍스트 미리보기:")
+        # First 3 pages preview
+        print(f"\nFirst 3 pages text preview:")
         for i in range(1, min(4, len(doc.text_contents) + 1)):
             page_texts = [tc for tc in doc.text_contents if tc.page_number == i]
             if page_texts:
-                print(f"\n--- 페이지 {i} ---")
+                print(f"\n--- Page {i} ---")
                 print(page_texts[0].text[:200] + "..." if len(page_texts[0].text) > 200 else page_texts[0].text)
         
-        # 마크다운 저장
+        # Save to markdown
         folder_name = "pdf_malaria"
         md_path = save_parsing_result_to_markdown(doc, folder_name)
-        print(f"\n✅ 결과 저장: {md_path}")
+        print(f"\n✅ Result saved: {md_path}")
         
-        assert len(doc.text_contents) > 0, "텍스트가 추출되지 않았습니다"
+        assert len(doc.text_contents) > 0, "No text was extracted"
     
     def test_html_detailed_parsing(self):
-        """HTML 상세 파싱 테스트"""
+        """HTML detailed parsing test"""
         parser = HtmlParser()
         html_file = PRIVATE_DIR / "Html_tick_borne_borrelia-1.html"
         
         if not html_file.exists():
-            pytest.skip(f"테스트 파일이 존재하지 않습니다: {html_file}")
+            pytest.skip(f"Test file does not exist: {html_file}")
         
         print(f"\n{'='*60}")
-        print(f"HTML 파싱 시작: {html_file.name}")
+        print(f"HTML parsing started: {html_file.name}")
         print(f"{'='*60}\n")
         
         doc = parser.parse(html_file)
         
-        # 상세 정보 출력
-        print(f"메타데이터:")
-        print(f"  - 제목: {doc.metadata.title}")
-        print(f"\n통계:")
-        print(f"  - 텍스트 블록: {len(doc.text_contents)}개")
-        print(f"  - 제목: {len([tc for tc in doc.text_contents if tc.level > 0])}개")
-        print(f"  - 테이블: {len(doc.tables)}개")
-        print(f"  - 이미지: {len(doc.images)}개")
+        # Print detailed info
+        print(f"Metadata:")
+        print(f"  - Title: {doc.metadata.title}")
+        print(f"\nStatistics:")
+        print(f"  - Text blocks: {len(doc.text_contents)}")
+        print(f"  - Headings: {len([tc for tc in doc.text_contents if tc.level > 0])}")
+        print(f"  - Tables: {len(doc.tables)}")
+        print(f"  - Images: {len(doc.images)}")
         
-        # 제목 구조 출력
+        # Print heading structure
         headings = [tc for tc in doc.text_contents if tc.level > 0]
         if headings:
-            print(f"\n제목 구조:")
+            print(f"\nHeading structure:")
             for heading in headings:
                 indent = "  " * (heading.level - 1)
                 print(f"{indent}- [H{heading.level}] {heading.text}")
         
-        # 테이블 미리보기
+        # Table preview
         if doc.tables:
-            print(f"\n첫 번째 테이블:")
+            print(f"\nFirst table:")
             table = doc.tables[0]
-            print(f"  - 헤더: {table.headers}")
-            print(f"  - 행 수: {len(table.rows)}")
+            print(f"  - Headers: {table.headers}")
+            print(f"  - Row count: {len(table.rows)}")
             if table.rows:
-                print(f"  - 첫 행: {table.rows[0]}")
+                print(f"  - First row: {table.rows[0]}")
         
-        # 마크다운 저장
+        # Save to markdown
         folder_name = "html_tick_borne"
         md_path = save_parsing_result_to_markdown(doc, folder_name)
-        print(f"\n✅ 결과 저장: {md_path}")
+        print(f"\n✅ Result saved: {md_path}")
         
-        assert len(doc.text_contents) > 0, "텍스트가 추출되지 않았습니다"
+        assert len(doc.text_contents) > 0, "No text was extracted"
     
     def test_html_converted_pdf(self):
-        """PDF에서 변환된 HTML 파싱 테스트"""
+        """HTML converted from PDF parsing test"""
         parser = HtmlParser()
         html_file = PRIVATE_DIR / "07_타겟_converted.html"
         
         if not html_file.exists():
-            pytest.skip(f"테스트 파일이 존재하지 않습니다: {html_file}")
+            pytest.skip(f"Test file does not exist: {html_file}")
         
         print(f"\n{'='*60}")
-        print(f"변환된 HTML 파싱 시작: {html_file.name}")
+        print(f"Converted HTML parsing started: {html_file.name}")
         print(f"{'='*60}\n")
         
         doc = parser.parse(html_file)
         
-        # 상세 정보 출력
-        print(f"메타데이터:")
-        print(f"  - 제목: {doc.metadata.title}")
-        print(f"\n통계:")
-        print(f"  - 텍스트 블록: {len(doc.text_contents)}개")
-        print(f"  - 제목: {len([tc for tc in doc.text_contents if tc.level > 0])}개")
-        print(f"  - 테이블: {len(doc.tables)}개")
-        print(f"  - 이미지: {len(doc.images)}개")
+        # Print detailed info
+        print(f"Metadata:")
+        print(f"  - Title: {doc.metadata.title}")
+        print(f"\nStatistics:")
+        print(f"  - Text blocks: {len(doc.text_contents)}")
+        print(f"  - Headings: {len([tc for tc in doc.text_contents if tc.level > 0])}")
+        print(f"  - Tables: {len(doc.tables)}")
+        print(f"  - Images: {len(doc.images)}")
         
-        # 마크다운 저장
+        # Save to markdown
         folder_name = "html_monkeypox"
         md_path = save_parsing_result_to_markdown(doc, folder_name)
-        print(f"\n✅ 결과 저장: {md_path}")
+        print(f"\n✅ Result saved: {md_path}")
         
-        assert len(doc.text_contents) > 0, "텍스트가 추출되지 않았습니다"
+        assert len(doc.text_contents) > 0, "No text was extracted"
     
     def test_docx_detailed_parsing(self):
-        """DOCX 상세 파싱 테스트"""
+        """DOCX detailed parsing test"""
         parser = DocxParser()
         docx_file = PRIVATE_DIR / "test_document.docx"
         
         if not docx_file.exists():
-            pytest.skip(f"테스트 파일이 존재하지 않습니다: {docx_file}")
+            pytest.skip(f"Test file does not exist: {docx_file}")
         
         print(f"\n{'='*60}")
-        print(f"DOCX 파싱 시작: {docx_file.name}")
+        print(f"DOCX parsing started: {docx_file.name}")
         print(f"{'='*60}\n")
         
         doc = parser.parse(docx_file)
         
-        # 상세 정보 출력
-        print(f"메타데이터:")
-        print(f"  - 제목: {doc.metadata.title}")
-        print(f"  - 작성자: {doc.metadata.author}")
-        print(f"  - 키워드: {doc.metadata.keywords}")
-        print(f"\n통계:")
-        print(f"  - 텍스트 블록: {len(doc.text_contents)}개")
-        print(f"  - 제목: {len([tc for tc in doc.text_contents if tc.level > 0])}개")
-        print(f"  - 테이블: {len(doc.tables)}개")
-        print(f"  - 이미지: {len(doc.images)}개")
+        # Print detailed info
+        print(f"Metadata:")
+        print(f"  - Title: {doc.metadata.title}")
+        print(f"  - Author: {doc.metadata.author}")
+        print(f"  - Keywords: {doc.metadata.keywords}")
+        print(f"\nStatistics:")
+        print(f"  - Text blocks: {len(doc.text_contents)}")
+        print(f"  - Headings: {len([tc for tc in doc.text_contents if tc.level > 0])}")
+        print(f"  - Tables: {len(doc.tables)}")
+        print(f"  - Images: {len(doc.images)}")
         
-        # 제목 구조 출력
+        # Print heading structure
         headings = [tc for tc in doc.text_contents if tc.level > 0]
         if headings:
-            print(f"\n제목 구조:")
-            for heading in headings[:10]:  # 처음 10개만
+            print(f"\nHeading structure:")
+            for heading in headings[:10]:  # First 10 only
                 indent = "  " * (heading.level - 1)
                 print(f"{indent}- [H{heading.level}] {heading.text}")
         
-        # 테이블 미리보기
+        # Table preview
         if doc.tables:
-            print(f"\n첫 번째 테이블:")
+            print(f"\nFirst table:")
             table = doc.tables[0]
-            print(f"  - 헤더: {table.headers}")
-            print(f"  - 크기: {len(table.headers)} x {len(table.rows)}")
+            print(f"  - Headers: {table.headers}")
+            print(f"  - Size: {len(table.headers)} x {len(table.rows)}")
             if table.rows:
-                print(f"  - 첫 행: {table.rows[0]}")
+                print(f"  - First row: {table.rows[0]}")
         
-        # 마크다운 저장
+        # Save to markdown
         folder_name = "docx_test"
         md_path = save_parsing_result_to_markdown(doc, folder_name)
-        print(f"\n✅ 결과 저장: {md_path}")
+        print(f"\n✅ Result saved: {md_path}")
         
-        assert len(doc.text_contents) > 0, "텍스트가 추출되지 않았습니다"
-        assert len(headings) > 0, "제목이 추출되지 않았습니다"
-        assert len(doc.tables) > 0, "테이블이 추출되지 않았습니다"
+        assert len(doc.text_contents) > 0, "No text was extracted"
+        assert len(headings) > 0, "No headings were extracted"
+        assert len(doc.tables) > 0, "No tables were extracted"
     
     def test_pptx_detailed_parsing(self):
-        """PPTX 상세 파싱 테스트"""
+        """PPTX detailed parsing test"""
         parser = PptxParser()
         pptx_file = PRIVATE_DIR / "test_presentation.pptx"
         
         if not pptx_file.exists():
-            pytest.skip(f"테스트 파일이 존재하지 않습니다: {pptx_file}")
+            pytest.skip(f"Test file does not exist: {pptx_file}")
         
         print(f"\n{'='*60}")
-        print(f"PPTX 파싱 시작: {pptx_file.name}")
+        print(f"PPTX parsing started: {pptx_file.name}")
         print(f"{'='*60}\n")
         
         doc = parser.parse(pptx_file)
         
-        # 상세 정보 출력
-        print(f"메타데이터:")
-        print(f"  - 제목: {doc.metadata.title}")
-        print(f"  - 슬라이드 수: {doc.metadata.page_count}")
-        print(f"\n통계:")
-        print(f"  - 텍스트 블록: {len(doc.text_contents)}개")
-        print(f"  - 제목: {len([tc for tc in doc.text_contents if tc.level > 0])}개")
-        print(f"  - 테이블: {len(doc.tables)}개")
-        print(f"  - 이미지: {len(doc.images)}개")
+        # Print detailed info
+        print(f"Metadata:")
+        print(f"  - Title: {doc.metadata.title}")
+        print(f"  - Slide count: {doc.metadata.page_count}")
+        print(f"\nStatistics:")
+        print(f"  - Text blocks: {len(doc.text_contents)}")
+        print(f"  - Headings: {len([tc for tc in doc.text_contents if tc.level > 0])}")
+        print(f"  - Tables: {len(doc.tables)}")
+        print(f"  - Images: {len(doc.images)}")
         
-        # 슬라이드별 제목 출력
+        # Print slide titles
         headings = [tc for tc in doc.text_contents if tc.level > 0]
         if headings:
-            print(f"\n슬라이드 제목:")
+            print(f"\nSlide titles:")
             for heading in headings:
-                print(f"  - [슬라이드 {heading.page_number}] {heading.text}")
+                print(f"  - [Slide {heading.page_number}] {heading.text}")
         
-        # 테이블 미리보기
+        # Table preview
         if doc.tables:
-            print(f"\n테이블 정보:")
+            print(f"\nTable info:")
             for i, table in enumerate(doc.tables, 1):
-                print(f"  테이블 {i} (슬라이드 {table.page_number}): {len(table.headers)} x {len(table.rows)}")
+                print(f"  Table {i} (Slide {table.page_number}): {len(table.headers)} x {len(table.rows)}")
         
-        # 마크다운 저장
+        # Save to markdown
         folder_name = "pptx_test"
         md_path = save_parsing_result_to_markdown(doc, folder_name)
-        print(f"\n✅ 결과 저장: {md_path}")
+        print(f"\n✅ Result saved: {md_path}")
         
-        assert len(doc.text_contents) > 0, "텍스트가 추출되지 않았습니다"
-        assert len(headings) > 0, "제목이 추출되지 않았습니다"
-        assert doc.metadata.page_count > 0, "슬라이드 수가 잘못되었습니다"
+        assert len(doc.text_contents) > 0, "No text was extracted"
+        assert len(headings) > 0, "No headings were extracted"
+        assert doc.metadata.page_count > 0, "Slide count is incorrect"
     
     def test_real_pptx_file1(self):
-        """실제 PPTX 파일 1 파싱 테스트"""
+        """Real PPTX file 1 parsing test"""
         parser = PptxParser()
         pptx_file = PRIVATE_DIR / "PPT샘플_20201027.pptx"
         
         if not pptx_file.exists():
-            pytest.skip(f"테스트 파일이 존재하지 않습니다: {pptx_file}")
+            pytest.skip(f"Test file does not exist: {pptx_file}")
         
         print(f"\n{'='*60}")
-        print(f"실제 PPTX 파일 1 파싱 시작: {pptx_file.name[:50]}...")
+        print(f"Real PPTX file 1 parsing started: {pptx_file.name[:50]}...")
         print(f"{'='*60}\n")
         
         try:
             doc = parser.parse(pptx_file)
             
-            # 상세 정보 출력
-            print(f"메타데이터:")
-            print(f"  - 제목: {doc.metadata.title}")
-            print(f"  - 슬라이드 수: {doc.metadata.page_count}")
-            print(f"\n통계:")
-            print(f"  - 텍스트 블록: {len(doc.text_contents)}개")
-            print(f"  - 제목: {len([tc for tc in doc.text_contents if tc.level > 0])}개")
-            print(f"  - 테이블: {len(doc.tables)}개")
-            print(f"  - 이미지: {len(doc.images)}개")
+            # Print detailed info
+            print(f"Metadata:")
+            print(f"  - Title: {doc.metadata.title}")
+            print(f"  - Slide count: {doc.metadata.page_count}")
+            print(f"\nStatistics:")
+            print(f"  - Text blocks: {len(doc.text_contents)}")
+            print(f"  - Headings: {len([tc for tc in doc.text_contents if tc.level > 0])}")
+            print(f"  - Tables: {len(doc.tables)}")
+            print(f"  - Images: {len(doc.images)}")
             
-            # 처음 5개 슬라이드 제목
+            # First 5 slide titles
             headings = [tc for tc in doc.text_contents if tc.level > 0]
             if headings:
-                print(f"\n처음 5개 슬라이드 제목:")
+                print(f"\nFirst 5 slide titles:")
                 for heading in headings[:5]:
-                    print(f"  - [슬라이드 {heading.page_number}] {heading.text[:80]}")
+                    print(f"  - [Slide {heading.page_number}] {heading.text[:80]}")
             
-            # 마크다운 저장
+            # Save to markdown
             folder_name = "pptx_novaplex_eu"
             md_path = save_parsing_result_to_markdown(doc, folder_name)
-            print(f"\n✅ 결과 저장: {md_path}")
+            print(f"\n✅ Result saved: {md_path}")
             
-            assert len(doc.text_contents) > 0, "텍스트가 추출되지 않았습니다"
-            assert doc.metadata.page_count > 0, "슬라이드 수가 잘못되었습니다"
+            assert len(doc.text_contents) > 0, "No text was extracted"
+            assert doc.metadata.page_count > 0, "Slide count is incorrect"
         except Exception as e:
-            print(f"\n❌ 파싱 실패: {e}")
+            print(f"\n❌ Parsing failed: {e}")
             raise
     
     def test_real_pptx_file2(self):
-        """실제 PPTX 파일 2 파싱 테스트"""
+        """Real PPTX file 2 parsing test"""
         parser = PptxParser()
         pptx_file = PRIVATE_DIR / "PPT샘플_개발.pptx"
         
         if not pptx_file.exists():
-            pytest.skip(f"테스트 파일이 존재하지 않습니다: {pptx_file}")
+            pytest.skip(f"Test file does not exist: {pptx_file}")
         
         print(f"\n{'='*60}")
-        print(f"실제 PPTX 파일 2 파싱 시작: {pptx_file.name[:50]}...")
+        print(f"Real PPTX file 2 parsing started: {pptx_file.name[:50]}...")
         print(f"{'='*60}\n")
         
         try:
             doc = parser.parse(pptx_file)
             
-            # 상세 정보 출력
-            print(f"메타데이터:")
-            print(f"  - 제목: {doc.metadata.title}")
-            print(f"  - 슬라이드 수: {doc.metadata.page_count}")
-            print(f"\n통계:")
-            print(f"  - 텍스트 블록: {len(doc.text_contents)}개")
-            print(f"  - 제목: {len([tc for tc in doc.text_contents if tc.level > 0])}개")
-            print(f"  - 테이블: {len(doc.tables)}개")
-            print(f"  - 이미지: {len(doc.images)}개")
+            # Print detailed info
+            print(f"Metadata:")
+            print(f"  - Title: {doc.metadata.title}")
+            print(f"  - Slide count: {doc.metadata.page_count}")
+            print(f"\nStatistics:")
+            print(f"  - Text blocks: {len(doc.text_contents)}")
+            print(f"  - Headings: {len([tc for tc in doc.text_contents if tc.level > 0])}")
+            print(f"  - Tables: {len(doc.tables)}")
+            print(f"  - Images: {len(doc.images)}")
             
-            # 처음 5개 슬라이드 제목
+            # First 5 slide titles
             headings = [tc for tc in doc.text_contents if tc.level > 0]
             if headings:
-                print(f"\n처음 5개 슬라이드 제목:")
+                print(f"\nFirst 5 slide titles:")
                 for heading in headings[:5]:
-                    print(f"  - [슬라이드 {heading.page_number}] {heading.text[:80]}")
+                    print(f"  - [Slide {heading.page_number}] {heading.text[:80]}")
             
-            # 마크다운 저장
+            # Save to markdown
             folder_name = "pptx_tick_borne_expanded"
             md_path = save_parsing_result_to_markdown(doc, folder_name)
-            print(f"\n✅ 결과 저장: {md_path}")
+            print(f"\n✅ Result saved: {md_path}")
             
-            assert len(doc.text_contents) > 0, "텍스트가 추출되지 않았습니다"
-            assert doc.metadata.page_count > 0, "슬라이드 수가 잘못되었습니다"
+            assert len(doc.text_contents) > 0, "No text was extracted"
+            assert doc.metadata.page_count > 0, "Slide count is incorrect"
         except Exception as e:
-            print(f"\n❌ 파싱 실패: {e}")
+            print(f"\n❌ Parsing failed: {e}")
             raise
     
     def test_real_docx_file(self):
-        """실제 DOCX 파일 파싱 테스트"""
+        """Real DOCX file parsing test"""
         parser = DocxParser()
         docx_file = PRIVATE_DIR / "[PPT변환 샘플].docx"
         
         if not docx_file.exists():
-            pytest.skip(f"테스트 파일이 존재하지 않습니다: {docx_file}")
+            pytest.skip(f"Test file does not exist: {docx_file}")
         
         print(f"\n{'='*60}")
-        print(f"실제 DOCX 파일 파싱 시작: {docx_file.name[:50]}...")
+        print(f"Real DOCX file parsing started: {docx_file.name[:50]}...")
         print(f"{'='*60}\n")
         
         try:
             doc = parser.parse(docx_file)
             
-            # 상세 정보 출력
-            print(f"메타데이터:")
-            print(f"  - 제목: {doc.metadata.title}")
-            print(f"  - 페이지 수: {doc.metadata.page_count}")
-            print(f"\n통계:")
-            print(f"  - 텍스트 블록: {len(doc.text_contents)}개")
-            print(f"  - 제목: {len([tc for tc in doc.text_contents if tc.level > 0])}개")
-            print(f"  - 테이블: {len(doc.tables)}개")
-            print(f"  - 이미지: {len(doc.images)}개")
-            print(f"  - 전체 텍스트 길이: {len(doc.full_text)} 문자")
+            # Print detailed info
+            print(f"Metadata:")
+            print(f"  - Title: {doc.metadata.title}")
+            print(f"  - Page count: {doc.metadata.page_count}")
+            print(f"\nStatistics:")
+            print(f"  - Text blocks: {len(doc.text_contents)}")
+            print(f"  - Headings: {len([tc for tc in doc.text_contents if tc.level > 0])}")
+            print(f"  - Tables: {len(doc.tables)}")
+            print(f"  - Images: {len(doc.images)}")
+            print(f"  - Total text length: {len(doc.full_text)} characters")
             
-            # 처음 5개 제목
+            # First 5 headings
             headings = [tc for tc in doc.text_contents if tc.level > 0]
             if headings:
-                print(f"\n처음 5개 제목:")
+                print(f"\nFirst 5 headings:")
                 for heading in headings[:5]:
-                    print(f"  - [레벨 {heading.level}] {heading.text[:80]}")
+                    print(f"  - [Level {heading.level}] {heading.text[:80]}")
             
-            # 마크다운 저장
+            # Save to markdown
             folder_name = "docx_tick_borne"
             md_path = save_parsing_result_to_markdown(doc, folder_name)
-            print(f"\n✅ 결과 저장: {md_path}")
+            print(f"\n✅ Result saved: {md_path}")
             
-            assert len(doc.text_contents) > 0, "텍스트가 추출되지 않았습니다"
+            assert len(doc.text_contents) > 0, "No text was extracted"
         except Exception as e:
-            print(f"\n❌ 파싱 실패: {e}")
+            print(f"\n❌ Parsing failed: {e}")
             raise

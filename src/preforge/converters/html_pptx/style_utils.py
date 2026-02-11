@@ -1,7 +1,7 @@
 """
-스타일 추출 및 적용 유틸리티
+Style extraction and application utilities
 
-HTML 요소에서 스타일을 추출하고 PowerPoint 요소에 적용하는 기능을 제공합니다.
+Provides functionality to extract styles from HTML elements and apply them to PowerPoint elements.
 """
 import re
 from typing import Dict, Any, Optional, List
@@ -10,18 +10,18 @@ from pptx.dml.color import RGBColor
 
 
 class StyleExtractor:
-    """HTML 요소에서 스타일 정보를 추출하는 클래스"""
+    """Class that extracts style information from HTML elements"""
     
     @staticmethod
     def extract_cell_styles(cell_elem: Tag) -> Dict[str, Any]:
         """
-        HTML 셀에서 스타일(Bold, Color 등) 추출
+        Extract styles (Bold, Color, etc.) from HTML cell
         
         Args:
-            cell_elem: BeautifulSoup Tag 객체
+            cell_elem: BeautifulSoup Tag object
             
         Returns:
-            스타일 정보 딕셔너리 {'bold': bool, 'color': RGBColor, 'background': RGBColor, 'link': str}
+            Style information dictionary {'bold': bool, 'color': RGBColor, 'background': RGBColor, 'link': str}
         """
         styles = {
             'bold': False,
@@ -32,7 +32,7 @@ class StyleExtractor:
         
         style_attr = cell_elem.get('style', '')
         
-        # color 추출
+        # Extract color
         color_match = re.search(
             r'color:\s*(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\))', 
             style_attr
@@ -40,7 +40,7 @@ class StyleExtractor:
         if color_match:
             styles['color'] = StyleExtractor.parse_color(color_match.group(1))
         
-        # background-color 추출
+        # Extract background-color
         bg_match = re.search(
             r'background(?:-color)?:\s*(#[a-fA-F0-9]{6}|#[a-fA-F0-9]{3}|rgb\([^)]+\))', 
             style_attr
@@ -48,7 +48,7 @@ class StyleExtractor:
         if bg_match:
             styles['background'] = StyleExtractor.parse_color(bg_match.group(1))
         
-        # font-weight 확인
+        # Check font-weight
         if 'font-weight' in style_attr:
             weight_match = re.search(r'font-weight:\s*(\w+)', style_attr)
             if weight_match:
@@ -56,11 +56,11 @@ class StyleExtractor:
                 if weight in ('bold', '700', '800', '900'):
                     styles['bold'] = True
         
-        # 내부의 bold 태그 확인 (b, strong)
+        # Check for bold tags (b, strong)
         if cell_elem.find(['b', 'strong']):
             styles['bold'] = True
         
-        # 내부의 색상 스타일 확인 (span 등)
+        # Check for color styles in inner elements (span, etc.)
         colored_elem = cell_elem.find(style=True)
         if colored_elem and not styles['color']:
             inner_style = colored_elem.get('style', '')
@@ -71,7 +71,7 @@ class StyleExtractor:
             if inner_color:
                 styles['color'] = StyleExtractor.parse_color(inner_color.group(1))
         
-        # 링크 확인
+        # Check for link
         link = cell_elem.find('a')
         if link:
             styles['link'] = link.get('href', '')
@@ -81,13 +81,13 @@ class StyleExtractor:
     @staticmethod
     def parse_color(color_str: str) -> Optional[RGBColor]:
         """
-        색상 문자열을 RGBColor로 변환
+        Convert color string to RGBColor
         
         Args:
-            color_str: '#rrggbb', '#rgb', 'rgb(r, g, b)' 형식의 색상 문자열
+            color_str: Color string in '#rrggbb', '#rgb', 'rgb(r, g, b)' format
             
         Returns:
-            RGBColor 객체 또는 None
+            RGBColor object or None
         """
         if not color_str:
             return None
@@ -122,26 +122,26 @@ class StyleExtractor:
     @staticmethod
     def extract_column_widths(cells: List[Tag]) -> List[Optional[int]]:
         """
-        HTML 테이블 셀에서 width 속성 추출
+        Extract width attribute from HTML table cells
         
         Args:
-            cells: BeautifulSoup Tag 리스트
+            cells: List of BeautifulSoup Tag objects
             
         Returns:
-            각 셀의 너비 리스트 (픽셀 단위, None이면 지정되지 않음)
+            List of cell widths (in pixels, None if not specified)
         """
         widths = []
         for cell in cells:
             width = None
             
-            # style 속성에서 width 추출
+            # Extract width from style attribute
             style = cell.get('style', '')
             if 'width:' in style:
                 match = re.search(r'width:\s*(\d+)(?:px|%)?', style)
                 if match:
                     width = int(match.group(1))
             
-            # width 속성 직접 확인
+            # Check width attribute directly
             elif cell.get('width'):
                 try:
                     width = int(cell.get('width').replace('px', '').replace('%', ''))
@@ -154,35 +154,35 @@ class StyleExtractor:
 
 
 class TextUtils:
-    """텍스트 처리 유틸리티"""
+    """Text processing utilities"""
     
     @staticmethod
     def clean_text(text: str) -> str:
         """
-        텍스트 정리 (불필요한 공백 제거)
+        Clean text (remove unnecessary whitespace)
         
         Args:
-            text: 원본 텍스트
+            text: Original text
             
         Returns:
-            정리된 텍스트
+            Cleaned text
         """
         if not text:
             return ""
-        # 여러 공백을 하나로
+        # Multiple whitespace to single
         text = re.sub(r'\s+', ' ', text)
         return text.strip()
     
     @staticmethod
     def extract_cell_text_with_formatting(cell_elem) -> str:
         """
-        HTML 셀에서 bullet, linebreak를 유지하며 텍스트 추출
+        Extract text from HTML cell while preserving bullets and line breaks
         
         Args:
-            cell_elem: BeautifulSoup Tag 객체 (td 또는 th)
+            cell_elem: BeautifulSoup Tag object (td or th)
             
         Returns:
-            포맷팅이 유지된 텍스트
+            Text with formatting preserved
         """
         from bs4 import NavigableString
         
@@ -192,7 +192,7 @@ class TextUtils:
         result_parts = []
         
         def process_element(elem, bullet_prefix=""):
-            """재귀적으로 요소 처리"""
+            """Process element recursively"""
             if isinstance(elem, NavigableString):
                 text = str(elem).strip()
                 if text:
@@ -204,45 +204,45 @@ class TextUtils:
             if tag_name == 'br':
                 result_parts.append('\n')
             elif tag_name == 'ul':
-                # ul 내부의 li 처리
+                # Process li inside ul
                 for li in elem.find_all('li', recursive=False):
                     result_parts.append('\n• ')
                     for child in li.children:
                         process_element(child)
             elif tag_name == 'ol':
-                # ol 내부의 li 처리 (숫자)
+                # Process li inside ol (numbered)
                 for idx, li in enumerate(elem.find_all('li', recursive=False), 1):
                     result_parts.append(f'\n{idx}. ')
                     for child in li.children:
                         process_element(child)
             elif tag_name == 'li':
-                # ul/ol 외부의 단독 li
+                # Standalone li outside ul/ol
                 result_parts.append('\n• ')
                 for child in elem.children:
                     process_element(child)
             elif tag_name in ('p', 'div'):
-                # 블록 요소는 줄바꿈 추가
+                # Add line break for block elements
                 for child in elem.children:
                     process_element(child)
                 if result_parts and not result_parts[-1].endswith('\n'):
                     result_parts.append('\n')
             else:
-                # 다른 요소는 자식들 처리
+                # Process children for other elements
                 if hasattr(elem, 'children'):
                     for child in elem.children:
                         process_element(child)
         
-        # 셀의 모든 자식 요소 처리
+        # Process all children of the cell
         for child in cell_elem.children:
             process_element(child)
         
-        # 결과 정리
+        # Clean up result
         text = ''.join(result_parts)
-        # 연속된 줄바꿈 정리
+        # Clean up consecutive line breaks
         text = re.sub(r'\n\s*\n', '\n', text)
-        # 앞뒤 공백/줄바꿈 제거
+        # Remove leading/trailing whitespace and line breaks
         text = text.strip()
-        # 여러 공백을 하나로 (줄바꿈 제외)
+        # Multiple spaces to single (excluding line breaks)
         text = re.sub(r'[ \t]+', ' ', text)
         
         return text
@@ -250,15 +250,15 @@ class TextUtils:
     @staticmethod
     def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
         """
-        텍스트를 최대 길이로 자르기
+        Truncate text to maximum length
         
         Args:
-            text: 원본 텍스트
-            max_length: 최대 길이
-            suffix: 잘린 경우 붙일 접미사
+            text: Original text
+            max_length: Maximum length
+            suffix: Suffix to append when truncated
             
         Returns:
-            잘린 텍스트
+            Truncated text
         """
         if len(text) <= max_length:
             return text

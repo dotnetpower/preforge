@@ -1,7 +1,7 @@
 """
-문서 변환기 모듈
+Document converter module
 
-다양한 문서 형식 간 변환 기능을 제공합니다.
+Provides conversion functionality between various document formats.
 """
 
 from .pptx_to_docx import PptxToDocxConverter

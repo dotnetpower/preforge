@@ -1,5 +1,5 @@
 """
-HTML 문서 파서
+HTML document parser
 """
 from pathlib import Path
 from typing import List
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class HtmlParser(BaseParser):
-    """HTML 문서 파서"""
+    """HTML document parser"""
     
     @property
     def supported_extensions(self) -> List[str]:
@@ -34,7 +34,7 @@ class HtmlParser(BaseParser):
         return DocumentType.HTML
     
     def parse(self, file_path: Path) -> Document:
-        """HTML 문서 파싱"""
+        """Parse HTML document"""
         self.validate_file(file_path)
         
         with open(file_path, "r", encoding="utf-8") as f:
@@ -42,16 +42,16 @@ class HtmlParser(BaseParser):
         
         soup = BeautifulSoup(html_content, "lxml")
         
-        # 메타데이터 추출
+        # Extract metadata
         metadata = self._extract_metadata(soup)
         
-        # 텍스트 추출
+        # Extract text
         text_contents = self._extract_text(soup)
         
-        # 테이블 추출
+        # Extract tables
         tables = self._extract_tables(soup)
         
-        # 이미지 추출
+        # Extract images
         images = self._extract_images(soup, file_path)
         
         return Document(
@@ -65,10 +65,10 @@ class HtmlParser(BaseParser):
         )
     
     def _extract_metadata(self, soup: BeautifulSoup) -> DocumentMetadata:
-        """메타데이터 추출"""
+        """Extract metadata"""
         title = soup.find("title")
         
-        # meta 태그에서 정보 추출
+        # Extract info from meta tags
         meta_author = soup.find("meta", attrs={"name": "author"})
         meta_description = soup.find("meta", attrs={"name": "description"})
         meta_keywords = soup.find("meta", attrs={"name": "keywords"})
@@ -81,28 +81,28 @@ class HtmlParser(BaseParser):
         )
     
     def _extract_text(self, soup: BeautifulSoup) -> List[TextContent]:
-        """텍스트 추출 (시맨틱 태그 구조 보존, 위치 추적)"""
+        """Extract text (preserve semantic tag structure, track position)"""
         text_contents = []
         position = 0
         
-        # script, style 태그 제거
+        # Remove script, style tags
         for element in soup.find_all(['script', 'style']):
             element.decompose()
         
-        # 시맨틱 태그별로 처리
+        # Process by semantic tags
         semantic_tags = {
-            'header': '헤더',
-            'nav': '네비게이션',
-            'main': '메인',
-            'article': '아티클',
-            'section': '섹션',
-            'aside': '사이드바',
-            'footer': '푸터',
+            'header': 'Header',
+            'nav': 'Navigation',
+            'main': 'Main',
+            'article': 'Article',
+            'section': 'Section',
+            'aside': 'Sidebar',
+            'footer': 'Footer',
         }
         
         for tag_name, tag_label in semantic_tags.items():
             for element in soup.find_all(tag_name):
-                # 시맨틱 태그 구분 표시
+                # Mark semantic tag boundaries
                 text_contents.append(
                     TextContent(
                         text=f"=== {tag_label} ===",
@@ -113,7 +113,7 @@ class HtmlParser(BaseParser):
                 )
                 position += 100
         
-        # 제목 태그 추출 (h1 ~ h6)
+        # Extract heading tags (h1 ~ h6)
         for level in range(1, 7):
             for header in soup.find_all(f"h{level}"):
                 text = header.get_text().strip()
@@ -128,7 +128,7 @@ class HtmlParser(BaseParser):
                     )
                     position += 100
         
-        # 단락 추출
+        # Paragraph extraction
         for para in soup.find_all("p"):
             text = para.get_text().strip()
             if text:
@@ -142,7 +142,7 @@ class HtmlParser(BaseParser):
                 )
                 position += 50
         
-        # 리스트 항목
+        # List items
         for item in soup.find_all("li"):
             text = item.get_text().strip()
             if text:
@@ -173,25 +173,25 @@ class HtmlParser(BaseParser):
         return text_contents
     
     def _extract_tables(self, soup: BeautifulSoup) -> List[TableContent]:
-        """테이블 추출 (colspan, rowspan 지원)"""
+        """Extract tables (colspan, rowspan supported)"""
         tables = []
         
         for table in soup.find_all("table"):
             headers = []
             rows = []
             
-            # 헤더 추출 (thead 또는 첫 번째 tr)
+            # Extract header (thead or first tr)
             thead = table.find("thead")
             if thead:
                 header_row = thead.find("tr")
                 if header_row:
                     for th in header_row.find_all(["th", "td"]):
                         text = th.get_text().strip().replace('\n', '<br>')
-                        # colspan 처리
+                        # colspan handling
                         colspan = int(th.get('colspan', 1))
                         headers.extend([text] * colspan)
             else:
-                # thead가 없으면 첫 번째 행을 헤더로 간주
+                # If no thead, treat first row as header
                 first_row = table.find("tr")
                 if first_row:
                     for cell in first_row.find_all(["th", "td"]):
@@ -199,7 +199,7 @@ class HtmlParser(BaseParser):
                         colspan = int(cell.get('colspan', 1))
                         headers.extend([text] * colspan)
             
-            # 데이터 행 추출
+            # Extract data rows
             tbody = table.find("tbody")
             row_elements = tbody.find_all("tr") if tbody else table.find_all("tr")[1:]
             
@@ -214,7 +214,7 @@ class HtmlParser(BaseParser):
                     rows.append(row_data)
             
             if headers or rows:
-                # 캡션 추출
+                # Extract caption
                 caption = table.find("caption")
                 caption_text = caption.get_text().strip() if caption else None
                 
@@ -231,7 +231,7 @@ class HtmlParser(BaseParser):
         return tables
     
     def _extract_images(self, soup: BeautifulSoup, file_path: Path) -> List[ImageContent]:
-        """이미지 추출 (로컬/원격/Base64 지원)"""
+        """Extract images (local/remote/Base64 supported)"""
         images = []
         position = 0
         
@@ -244,7 +244,7 @@ class HtmlParser(BaseParser):
                 image_data = None
                 image_format = "unknown"
                 
-                # Base64 인라인 이미지
+                # Base64 inline image
                 if src.startswith("data:"):
                     # data:image/png;base64,iVBORw0KG...
                     parts = src.split(",", 1)
@@ -252,17 +252,17 @@ class HtmlParser(BaseParser):
                         header = parts[0]
                         data_part = parts[1]
                         
-                        # 이미지 포맷 추출
+                        # Extract image format
                         if "image/" in header:
                             image_format = header.split("image/")[1].split(";")[0]
                         
-                        # Base64 디코딩
+                        # Base64 decode
                         image_data = base64.b64decode(data_part)
                 
-                # 원격 URL (선택적 다운로드)
+                # Remote URL (optional download)
                 elif src.startswith(("http://", "https://")):
-                    logger.info(f"원격 이미지 발견 (다운로드 생략): {src}")
-                    # 다운로드를 원하면 아래 주석 해제
+                    logger.info(f"Remote image found (skipping download): {src}")
+                    # Uncomment below to enable download
                     # try:
                     #     response = requests.get(src, timeout=5)
                     #     if response.status_code == 200:
@@ -271,7 +271,7 @@ class HtmlParser(BaseParser):
                     # except:
                     #     pass
                 
-                # 로컬 파일 경로
+                # Local file path
                 else:
                     img_path = file_path.parent / src
                     if img_path.exists():
@@ -279,10 +279,10 @@ class HtmlParser(BaseParser):
                             image_data = f.read()
                         image_format = img_path.suffix[1:] if img_path.suffix else "unknown"
                     else:
-                        logger.warning(f"이미지 파일을 찾을 수 없음: {img_path}")
+                        logger.warning(f"Image file not found: {img_path}")
                 
                 if image_data:
-                    # 이미지 크기 추출
+                    # Extract image dimensions
                     width = img.get("width", 0)
                     height = img.get("height", 0)
                     if width:
@@ -290,7 +290,7 @@ class HtmlParser(BaseParser):
                     if height:
                         height = int(height) if str(height).isdigit() else 0
                     
-                    # alt 텍스트
+                    # alt text
                     caption = img.get("alt")
                     
                     images.append(
@@ -304,7 +304,7 @@ class HtmlParser(BaseParser):
                         )
                     )
             except Exception as e:
-                logger.warning(f"이미지 추출 실패: {src}, 오류: {e}")
+                logger.warning(f"Failed to extract image: {src}, error: {e}")
                 continue
             
             position += 100

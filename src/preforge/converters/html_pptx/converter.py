@@ -1,7 +1,7 @@
 """
-HTML(.html) 문서를 PowerPoint(.pptx)로 변환하는 컨버터
+HTML(.html) to PowerPoint(.pptx) converter
 
-모듈화된 구조로 HTML 구조를 분석하여 섹션별로 슬라이드를 생성합니다.
+Modularly structured to analyze HTML structure and generate slides by section.
 """
 import logging
 import tempfile
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 
 class HtmlToPptxConverter:
-    """HTML을 PowerPoint로 변환하는 컨버터"""
+    """Converter to transform HTML to PowerPoint"""
     
     def __init__(
         self,
@@ -46,12 +46,12 @@ class HtmlToPptxConverter:
         colors: ColorPalette = None
     ):
         """
-        컨버터 초기화
+        Initialize converter
         
         Args:
-            slide_config: 슬라이드 레이아웃 설정
-            table_config: 테이블 설정
-            colors: 색상 팔레트
+            slide_config: Slide layout settings
+            table_config: Table settings
+            colors: Color palette
         """
         self.slide_config = slide_config or DEFAULT_SLIDE_CONFIG
         self.table_config = table_config or DEFAULT_TABLE_CONFIG
@@ -60,7 +60,7 @@ class HtmlToPptxConverter:
         self.prs: Optional[Presentation] = None
         self.html_path: Optional[Path] = None
         
-        # 슬라이드 빌더들 (convert 시 초기화)
+        # Slide builders (initialized during convert)
         self._title_builder: Optional[TitleSlideBuilder] = None
         self._content_builder: Optional[ContentSlideBuilder] = None
         self._table_builder: Optional[TableSlideBuilder] = None
@@ -71,41 +71,41 @@ class HtmlToPptxConverter:
     
     def convert(self, html_path: Path, output_path: Path) -> None:
         """
-        HTML 파일을 PPTX로 변환
+        Convert HTML file to PPTX
         
         Args:
-            html_path: 입력 HTML 파일 경로
-            output_path: 출력 PPTX 파일 경로
+            html_path: Input HTML file path
+            output_path: Output PPTX file path
         """
-        logger.info(f"HTML -> PPTX 변환 시작: {html_path} -> {output_path}")
+        logger.info(f"HTML -> PPTX conversion started: {html_path} -> {output_path}")
         
         self.html_path = Path(html_path).absolute()
         
-        # HTML 파일 읽기
+        # Read HTML file
         with open(html_path, 'r', encoding='utf-8') as f:
             html_content = f.read()
         
         soup = BeautifulSoup(html_content, 'lxml')
         
-        # 프레젠테이션 초기화
+        # Initialize presentation
         self.prs = Presentation()
         self.prs.slide_width = self.slide_config.width
         self.prs.slide_height = self.slide_config.height
         
-        # 슬라이드 빌더 초기화
+        # Initialize slide builders
         self._init_builders()
         
-        # 슬라이드 생성
+        # Create slides
         self._create_title_slide(soup)
         self._create_analysis_summary_slides(soup)
         self._process_main_content(soup)
         
-        # 저장
+        # Save
         self.prs.save(str(output_path))
-        logger.info(f"변환 완료: {output_path} (총 {len(self.prs.slides)}개 슬라이드)")
+        logger.info(f"Conversion complete: {output_path} (total {len(self.prs.slides)} slides)")
     
     def _init_builders(self) -> None:
-        """슬라이드 빌더 초기화"""
+        """Initialize slide builders"""
         self._title_builder = TitleSlideBuilder(
             self.prs, self.slide_config, self.colors
         )
@@ -130,7 +130,7 @@ class HtmlToPptxConverter:
         )
     
     def _create_title_slide(self, soup: BeautifulSoup) -> None:
-        """타이틀 슬라이드 생성"""
+        """Create title slide"""
         title_elem = soup.find('div', class_='header-title')
         subtitle_elem = soup.find('div', class_='header-subtitle')
         
@@ -140,7 +140,7 @@ class HtmlToPptxConverter:
         self._title_builder.create(title, subtitle)
     
     def _create_analysis_summary_slides(self, soup: BeautifulSoup) -> None:
-        """Analysis Summary 섹션 슬라이드 생성"""
+        """Create Analysis Summary section slides"""
         analysis_div = soup.find('div', class_='analysis-summary')
         if not analysis_div:
             return
@@ -156,7 +156,7 @@ class HtmlToPptxConverter:
                 self._table_builder.create_from_html(table_elem, header_text)
     
     def _process_main_content(self, soup: BeautifulSoup) -> None:
-        """메인 컨텐츠 처리"""
+        """Process main content"""
         content_container = soup.find('div', class_='content-container')
         if not content_container:
             return
@@ -164,10 +164,10 @@ class HtmlToPptxConverter:
         gene_title_elem = content_container.find('h1', class_='gene-title')
         main_title = gene_title_elem.get_text(strip=True) if gene_title_elem else "Gene Analysis"
         
-        # sequence-section 찾기 (Detailed Results 섹션)
+        # Find sequence-section (Detailed Results section)
         sequence_section = content_container.find('div', class_='sequence-section')
         
-        # sequence-section 내부의 gene-section ID 목록 생성 (중복 방지용)
+        # Create gene-section ID list inside sequence-section (for duplicate prevention)
         sequence_section_ids = set()
         if sequence_section:
             for gs in sequence_section.find_all('div', class_='gene-section'):
@@ -177,18 +177,18 @@ class HtmlToPptxConverter:
         seq_viewer_index = 0
         
         for idx, gene_section in enumerate(gene_sections, 1):
-            # sequence-section 내부의 gene-section은 건너뛰기 (나중에 별도 처리)
+            # Skip gene-sections inside sequence-section (processed separately later)
             if id(gene_section) in sequence_section_ids:
                 continue
             
             section_title = self._get_section_title(gene_section, idx)
             
-            # 출처 종합 관련 섹션인지 확인 (숫자로 시작하는 Evidence 섹션)
+            # Check if this is an Evidence section (starts with number)
             if section_title and section_title[0].isdigit() and '.' in section_title:
-                # Evidence 섹션은 _process_evidence_section에서 처리
+                # Evidence sections are processed in _process_evidence_section
                 continue
             
-            # SeqViewerApp 스크린샷 캡처
+            # Capture SeqViewerApp screenshots
             seq_viewers = gene_section.find_all('div', class_='SeqViewerApp', recursive=False)
             for sv_idx, _ in enumerate(seq_viewers):
                 viewer_title = f"{section_title} - Sequence Viewer"
@@ -197,53 +197,53 @@ class HtmlToPptxConverter:
                 self._capture_element_screenshot('.SeqViewerApp', viewer_title, seq_viewer_index)
                 seq_viewer_index += 1
             
-            # 이미지 처리
+            # Image processing
             self._process_images(gene_section, section_title, main_title)
             
-            # 테이블 처리
+            # Table processing
             self._process_tables(gene_section, section_title, main_title)
             
-            # 하위 섹션 처리
+            # Subsection processing
             self._process_subsections(gene_section, main_title)
         
-        # gene-section 외부의 독립적인 h3 섹션 처리 (3.3, 3.4 등)
+        # Process standalone h3 sections outside gene-section (e.g., 3.3, 3.4)
         self._process_standalone_h3_sections(content_container, main_title)
         
-        # Detailed Results 섹션 처리 (sequence-section)
+        # Process Detailed Results section (sequence-section)
         self._process_sequence_section(content_container)
         
-        # 출처 종합 - Evidence 테이블 처리
+        # Process Evidence tables (Source Summary)
         self._process_evidence_section(content_container)
     
     def _get_section_title(self, gene_section: Tag, default_idx: int) -> str:
-        """섹션 제목 추출"""
-        # h2.subsection-title 확인
+        """Extract section title"""
+        # Check h2.subsection-title
         subsection_title = gene_section.find('h2', class_='subsection-title')
         if subsection_title:
             return subsection_title.get_text(strip=True)
         
-        # h3.subsection-title 확인
+        # Check h3.subsection-title
         h3_title = gene_section.find('h3', class_='subsection-title')
         if h3_title:
             return h3_title.get_text(strip=True)
         
-        # 일반 h3 확인
+        # Check general h3
         h3_elem = gene_section.find('h3')
         if h3_elem:
             return h3_elem.get_text(strip=True)
         
-        # 일반 h2 확인
+        # Check general h2
         h2_elem = gene_section.find('h2')
         if h2_elem:
             return h2_elem.get_text(strip=True)
         
-        # 기본값 반환
+        # Default value
         if default_idx > 0:
             return f"Section {default_idx}"
         return "Section"
     
     def _process_images(self, gene_section: Tag, section_title: str, main_title: str) -> None:
-        """이미지 처리"""
+        """Process images"""
         image_placeholder = gene_section.find('div', class_='image-placeholder')
         if image_placeholder:
             img = image_placeholder.find('img')
@@ -251,7 +251,7 @@ class HtmlToPptxConverter:
                 self._image_builder.create_from_base64(img, section_title)
     
     def _process_tables(self, gene_section: Tag, section_title: str, main_title: str) -> None:
-        """테이블 처리 (동적 그룹화)"""
+        """Process tables (dynamic grouping)"""
         tables = gene_section.find_all('table', class_='data-table')
         if not tables:
             return
@@ -261,7 +261,7 @@ class HtmlToPptxConverter:
             for t in tables
         ]
         
-        # 동적 그룹화
+        # Dynamic grouping
         title_space = Inches(0.85)
         table_gap = Inches(0.3)
         available_height = (
@@ -307,10 +307,10 @@ class HtmlToPptxConverter:
         section_title: str, 
         main_title: str
     ) -> None:
-        """여러 테이블을 하나의 슬라이드에 합침"""
+        """Combine multiple tables into a single slide"""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         
-        # 제목 추가
+        # Add title
         if main_title:
             main_box = slide.shapes.add_textbox(
                 self.slide_config.margin_left, Inches(0.1),
@@ -333,7 +333,7 @@ class HtmlToPptxConverter:
         title_para.font.bold = True
         title_para.font.color.rgb = self.colors['primary_red']
         
-        # 테이블 추가
+        # Add tables
         current_top = title_top + Inches(0.5)
         available_height = self.slide_config.height - current_top - self.slide_config.margin_bottom
         table_builder = TableBuilder(colors=self.colors)
@@ -361,28 +361,28 @@ class HtmlToPptxConverter:
             current_top += table_height + Inches(0.1)
     
     def _process_subsections(self, gene_section: Tag, main_title: str) -> None:
-        """하위 섹션(h3) 처리 - 옵션 A: 모든 h3 제목과 테이블을 하나의 슬라이드에"""
+        """Process subsections (h3) - Option A: All h3 titles and tables in one slide"""
         h3_sections = gene_section.find_all('h3')
         if not h3_sections:
             return
         
-        # h3와 관련 테이블을 수집
+        # Collect h3 and related tables
         h3_table_pairs = []
         for h3 in h3_sections:
             h3_title = h3.get_text(strip=True)
             next_table = h3.find_next('table')
             if next_table:
-                # 테이블이 현재 gene_section 내에 있는지 확인
-                table_parent = next_table.parent
-                while table_parent and table_parent != gene_section:
-                    table_parent = table_parent.parent
-                if table_parent == gene_section:
-                    h3_table_pairs.append({'h3_title': h3_title, 'table': next_table})
+            # Check if table is within current gene_section
+            table_parent = next_table.parent
+            while table_parent and table_parent != gene_section:
+                table_parent = table_parent.parent
+            if table_parent == gene_section:
+                h3_table_pairs.append({'h3_title': h3_title, 'table': next_table})
         
         if not h3_table_pairs:
             return
         
-        # 하나의 슬라이드에 모든 h3와 테이블을 표시 (옵션 A)
+        # Display all h3 and tables in one slide (Option A)
         self._create_h3_combined_slide(h3_table_pairs, main_title)
     
     def _create_h3_combined_slide(
@@ -390,10 +390,10 @@ class HtmlToPptxConverter:
         h3_table_pairs: List[dict],
         main_title: str
     ) -> None:
-        """h3 제목들과 테이블들을 하나의 슬라이드에 합침"""
+        """Combine h3 titles and tables into one slide"""
         slide = self.prs.slides.add_slide(self.prs.slide_layouts[6])
         
-        # 메인 타이틀
+        # Main title
         if main_title:
             main_box = slide.shapes.add_textbox(
                 self.slide_config.margin_left, Inches(0.1),
@@ -407,12 +407,12 @@ class HtmlToPptxConverter:
         current_top = Inches(0.35) if main_title else self.slide_config.margin_top
         table_builder = TableBuilder(colors=self.colors)
         
-        # 각 h3+테이블 추가
+        # Add each h3+table
         for idx, pair in enumerate(h3_table_pairs):
             h3_title = pair['h3_title']
             table_elem = pair['table']
             
-            # h3 제목 추가
+            # Add h3 title
             h3_box = slide.shapes.add_textbox(
                 self.slide_config.margin_left, current_top,
                 self.slide_config.content_width, Inches(0.3)
@@ -426,13 +426,13 @@ class HtmlToPptxConverter:
             
             current_top += Inches(0.35)
             
-            # 테이블 추가
+            # Add table
             extractor = TableDataExtractor(table_elem).extract()
             rows = len(extractor.rows_data)
             
-            # 남은 공간 계산
+            # Calculate remaining space
             remaining_height = self.slide_config.height - current_top - self.slide_config.margin_bottom
-            # 최대 높이 제한
+            # Maximum height limit
             table_height = min(Inches(0.25) * rows, remaining_height * 0.4)
             
             table_builder.create_table(
@@ -450,29 +450,29 @@ class HtmlToPptxConverter:
     
     def _process_standalone_h3_sections(self, content_container: Tag, main_title: str) -> None:
         """
-        gene-section 외부에 있는 독립적인 h3 섹션 처리 (예: 3.3, 3.4 섹션)
-        content-container의 직접 자식인 h3 요소를 찾아 처리
+        Process standalone h3 sections outside gene-section (e.g., sections 3.3, 3.4)
+        Find h3 elements that are direct children of content-container
         """
-        # content-container의 직접 자식 중 h3 요소 찾기
+        # Find h3 elements that are direct children of content-container
         standalone_h3_elements = content_container.find_all('h3', recursive=False)
         
         for h3 in standalone_h3_elements:
             h3_title = h3.get_text(strip=True)
             
-            # h3 다음에 오는 요소들 수집
+            # Collect elements following h3
             next_sibling = h3.find_next_sibling()
             
             if next_sibling:
-                # 테이블 처리 (예: 3.3 주요기관 권고 현황)
+                # Table processing (e.g., 3.3 Key Agency Recommendations)
                 if next_sibling.name == 'table':
                     self._table_builder.create_from_html(next_sibling, h3_title, main_title)
                 
-                # Reference 카드가 여러 개인 경우 (예: 3.4 주요 문헌)
+                # Multiple reference cards (e.g., 3.4 Key Literature)
                 elif next_sibling.name == 'div' and 'reference-card' in next_sibling.get('class', []):
-                    # 섹션 구분 슬라이드 생성
+                    # Create section separator slide
                     self._section_builder.create(h3_title)
                     
-                    # 모든 reference-card를 개별 슬라이드로 생성
+                    # Create individual slides for all reference-cards
                     current = next_sibling
                     while current and current.name == 'div' and 'reference-card' in current.get('class', []):
                         self._reference_builder.create(current, h3_title)
@@ -480,32 +480,32 @@ class HtmlToPptxConverter:
     
     def _process_sequence_section(self, content_container: Tag) -> None:
         """
-        Detailed Results of the AI-based sequence analysis 섹션 처리
-        sequence-section 클래스를 가진 div를 찾아 처리
+        Process Detailed Results of the AI-based sequence analysis section
+        Find div with sequence-section class
         """
-        # sequence-section 찾기
+        # Find sequence-section
         sequence_section = content_container.find('div', class_='sequence-section')
         if not sequence_section:
             return
         
-        # h2.sequence-title 찾기
+        # Find h2.sequence-title
         sequence_title_elem = sequence_section.find('h2', class_='sequence-title')
         if sequence_title_elem:
             sequence_title = sequence_title_elem.get_text(strip=True)
         else:
             sequence_title = "Detailed Results of the AI-based sequence analysis"
         
-        # 제목 슬라이드 생성
-        self._title_builder.create(sequence_title, "AI 기반 서열 분석 상세 결과")
+        # Create title slide
+        self._title_builder.create(sequence_title, "AI-based sequence analysis detailed results")
         
-        # sequence-section 내부의 gene-section들 처리
+        # Process gene-sections inside sequence-section
         gene_sections = sequence_section.find_all('div', class_='gene-section')
         seq_viewer_index = 0
         
         for gene_section in gene_sections:
             section_title = self._get_section_title(gene_section, 0)
             
-            # SeqViewerApp 스크린샷 캡처
+            # Capture SeqViewerApp screenshots
             seq_viewers = gene_section.find_all('div', class_='SeqViewerApp', recursive=False)
             for sv_idx, _ in enumerate(seq_viewers):
                 viewer_title = f"{section_title} - Sequence Viewer"
@@ -514,36 +514,36 @@ class HtmlToPptxConverter:
                 self._capture_element_screenshot('.SeqViewerApp', viewer_title, seq_viewer_index)
                 seq_viewer_index += 1
             
-            # 이미지 처리
+            # Image processing
             self._process_images(gene_section, section_title, sequence_title)
             
-            # 테이블과 background-text를 HTML 순서대로 처리
+            # Process tables and background-text in HTML order
             tables = gene_section.find_all('table', class_='data-table')
             background_texts = gene_section.find_all('div', class_='background-text')
             
             if tables and not background_texts:
-                # 테이블만 있는 경우
+                # Only tables
                 for table in tables:
                     self._table_builder.create_from_html(table, section_title, sequence_title)
             elif background_texts and not tables:
-                # background-text만 있는 경우
+                # Only background-text
                 for bg_text in background_texts:
                     text_content = bg_text.get_text(strip=True)
                     if text_content:
                         self._content_builder.create_with_text(section_title, text_content, sequence_title)
             elif tables and background_texts:
-                # 둘 다 있는 경우: 테이블 슬라이드에 background-text 포함
+                # Both: include background-text in table slide
                 for table in tables:
-                    # background-text를 subtitle로 사용
+                    # Use background-text as subtitle
                     bg_text = background_texts[0].get_text(strip=True) if background_texts else ""
                     self._table_builder.create_from_html(table, section_title, sequence_title)
     
     def _process_evidence_section(self, content_container: Tag) -> None:
         """
-        출처 종합 섹션 처리 (Evidence 테이블들)
-        h2.subsection-title로 시작하는 Evidence 섹션들을 처리
+        Process Source Summary section (Evidence tables)
+        Process Evidence sections starting with h2.subsection-title
         """
-        # Evidence 관련 h2 섹션들 찾기
+        # Find Evidence-related h2 sections
         evidence_titles = [
             '1. gene name', '2. protein name', '3. gene_synonyms',
             '4. related gene name', '5. feature reference', '6. gc content reference',
@@ -557,21 +557,21 @@ class HtmlToPptxConverter:
         
         for subsection in all_subsections:
             section_title = subsection.get_text(strip=True)
-            # Evidence 관련 섹션인지 확인 (숫자로 시작하거나 특정 키워드 포함)
+            # Check if this is an Evidence-related section (starts with number or contains specific keywords)
             if any(section_title.lower().startswith(t.split('.')[0] + '.') for t in evidence_titles) or \
                'reference' in section_title.lower() or \
                section_title.lower().startswith(tuple(str(i) + '.' for i in range(1, 13))):
                 evidence_subsections.append(subsection)
         
         if not evidence_subsections:
-            # 기존 방식으로 Evidence 테이블 처리
+            # Process Evidence tables using existing method
             self._process_evidence_tables_legacy(content_container)
             return
         
-        # 출처 종합 섹션 슬라이드 생성
-        self._section_builder.create("출처 종합", "Evidence References")
+        # Create Source Summary section slide
+        self._section_builder.create("Source Summary", "Evidence References")
         
-        # 각 Evidence 섹션 처리
+        # Process each Evidence section
         for subsection in evidence_subsections:
             section_title = subsection.get_text(strip=True)
             
@@ -588,7 +588,7 @@ class HtmlToPptxConverter:
                 next_elem = next_elem.find_next_sibling()
     
     def _process_evidence_tables_legacy(self, content_container: Tag) -> None:
-        """Evidence 테이블 처리 (기존 방식)"""
+        """Process Evidence tables (legacy method)"""
         all_subsections = content_container.find_all('h2', class_='subsection-title')
         
         for subsection in all_subsections:
@@ -607,15 +607,15 @@ class HtmlToPptxConverter:
                 next_elem = next_elem.find_next_sibling()
     
     def _capture_element_screenshot(self, selector: str, title: str, index: int = 0) -> None:
-        """Playwright를 사용하여 HTML 요소 스크린샷 캡처"""
+        """Capture HTML element screenshot using Playwright"""
         if not self.html_path:
-            logger.warning(f"HTML 경로가 설정되지 않아 스크린샷을 캡처할 수 없습니다")
+            logger.warning(f"Cannot capture screenshot: HTML path not set")
             return
         
         try:
             from playwright.sync_api import sync_playwright
             
-            logger.info(f"Playwright로 요소 캡처 중: {selector} (index={index})")
+            logger.info(f"Capturing element with Playwright: {selector} (index={index})")
             
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
@@ -646,18 +646,18 @@ class HtmlToPptxConverter:
                 os.unlink(screenshot_path)
                 
         except ImportError:
-            logger.error("Playwright가 설치되지 않았습니다.")
+            logger.error("Playwright is not installed.")
         except Exception as e:
-            logger.error(f"요소 스크린샷 캡처 실패: {e}")
+            logger.error(f"Failed to capture element screenshot: {e}")
 
 
 def convert_html_to_pptx(html_path: Path, output_path: Path) -> None:
     """
-    HTML 파일을 PPTX로 변환하는 편의 함수
+    Convenience function to convert HTML file to PPTX
     
     Args:
-        html_path: 입력 HTML 파일 경로
-        output_path: 출력 PPTX 파일 경로
+        html_path: Input HTML file path
+        output_path: Output PPTX file path
     """
     converter = HtmlToPptxConverter()
     converter.convert(html_path, output_path)
@@ -667,11 +667,11 @@ if __name__ == "__main__":
     import sys
     
     if len(sys.argv) < 3:
-        print("사용법: python converter.py <input.html> <output.pptx>")
+        print("Usage: python converter.py <input.html> <output.pptx>")
         sys.exit(1)
     
     input_path = Path(sys.argv[1])
     output_path = Path(sys.argv[2])
     
     convert_html_to_pptx(input_path, output_path)
-    print(f"변환 완료: {output_path}")
+    print(f"Conversion complete: {output_path}")

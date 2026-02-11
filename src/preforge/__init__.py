@@ -1,8 +1,9 @@
 """
-preforge - 문서 파싱 및 분석 라이브러리
+preforge - Document Parsing and Analysis Library
 
-각종 문서(docx, pptx, xlsx, html, md, pdf 등)를 읽고 변환하며,
-NER 모델과 AI Agent를 활용한 문서 분석 기능을 제공합니다.
+A Python library for reading and converting various document formats
+(docx, pptx, xlsx, html, md, pdf, etc.), with document analysis features
+utilizing NER models and AI Agents.
 """
 
 __version__ = "0.1.0"

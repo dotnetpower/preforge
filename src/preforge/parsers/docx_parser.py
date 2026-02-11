@@ -1,5 +1,5 @@
 """
-Word 문서(.docx) 파서
+Word document (.docx) parser
 """
 from pathlib import Path
 from typing import List, Optional
@@ -28,14 +28,14 @@ logger = logging.getLogger(__name__)
 
 
 class DocxParser(BaseParser):
-    """Word 문서 파서"""
+    """Word document parser"""
     
     def __init__(self):
         super().__init__()
-        self._numbering_counters = {}  # numId별 카운터 추적
+        self._numbering_counters = {}  # Track counters by numId
     
     def _get_paragraph_number(self, paragraph: Paragraph) -> Optional[str]:
-        """단락의 자동 번호 매기기 번호를 가져옵니다"""
+        """Get the automatic numbering for a paragraph"""
         try:
             if paragraph._element.pPr is None:
                 return None
@@ -44,7 +44,7 @@ class DocxParser(BaseParser):
             if numPr is None:
                 return None
             
-            # 번호 매기기 레벨 및 ID 가져오기
+            # Get numbering level and ID
             ilvl_element = numPr.ilvl
             numId_element = numPr.numId
             
@@ -54,11 +54,11 @@ class DocxParser(BaseParser):
             ilvl = ilvl_element.val
             numId = numId_element.val
             
-            # numId가 0이면 번호 매기기가 없음
+            # numId of 0 means no numbering
             if numId == 0:
                 return None
             
-            # numId별로 카운터 추적
+            # Track counters by numId
             counter_key = (numId, ilvl)
             if counter_key not in self._numbering_counters:
                 self._numbering_counters[counter_key] = 0
@@ -66,16 +66,16 @@ class DocxParser(BaseParser):
             self._numbering_counters[counter_key] += 1
             counter = self._numbering_counters[counter_key]
             
-            # 레벨에 따라 번호 형식 결정
+            # Determine number format based on level
             if ilvl == 0:
                 return f"{counter}."
             elif ilvl == 1:
-                # 상위 레벨 카운터 가져오기
+                # Get parent level counter
                 parent_key = (numId, ilvl - 1)
                 parent_counter = self._numbering_counters.get(parent_key, 1)
                 return f"{parent_counter}.{counter}"
             elif ilvl == 2:
-                # 2단계 상위 카운터
+                # Get grandparent level counter
                 parent_key = (numId, ilvl - 1)
                 grandparent_key = (numId, ilvl - 2)
                 parent_counter = self._numbering_counters.get(parent_key, 1)
@@ -85,7 +85,7 @@ class DocxParser(BaseParser):
                 return f"[{counter}]"
             
         except Exception as e:
-            logger.debug(f"번호 매기기 정보 추출 실패: {e}")
+            logger.debug(f"Failed to extract numbering info: {e}")
             return None
     
     @property
@@ -97,21 +97,21 @@ class DocxParser(BaseParser):
         return DocumentType.DOCX
     
     def parse(self, file_path: Path) -> Document:
-        """Word 문서 파싱"""
+        """Parse Word document"""
         self.validate_file(file_path)
         
         docx_doc = docx.Document(file_path)
         
-        # 메타데이터 추출
+        # Extract metadata
         metadata = self._extract_metadata(docx_doc)
         
-        # 텍스트 추출
+        # Extract text
         text_contents = self._extract_text(docx_doc)
         
-        # 테이블 추출
+        # Extract tables
         tables = self._extract_tables(docx_doc)
         
-        # 이미지 추출
+        # Extract images
         images = self._extract_images(docx_doc)
         
         return Document(
@@ -125,10 +125,10 @@ class DocxParser(BaseParser):
         )
     
     def _extract_metadata(self, doc: DocxDocument) -> DocumentMetadata:
-        """메타데이터 추출"""
+        """Extract metadata"""
         core_props = doc.core_properties
         
-        # 페이지 수 계산 (섹션 기반 추정)
+        # Calculate page count (section-based estimation)
         page_count = len(doc.sections) if doc.sections else None
         
         return DocumentMetadata(
@@ -148,53 +148,53 @@ class DocxParser(BaseParser):
         )
     
     def _extract_text(self, doc: DocxDocument) -> List[TextContent]:
-        """텍스트 추출 (섹션, 머리글, 바닥글, 텍스트 박스 포함)"""
+        """Extract text (including sections, headers, footers, text boxes)"""
         text_contents = []
         current_page = 1
         
-        # 섹션별로 처리
+        # Process by section
         for section_idx, section in enumerate(doc.sections, 1):
-            # 머리글 추출
+            # Extract header
             if section.header:
                 for para in section.header.paragraphs:
                     if para.text.strip():
                         text_contents.append(
                             TextContent(
-                                text=f"[머리글] {para.text}",
+                                text=f"[Header] {para.text}",
                                 level=0,
                                 style="Header",
                                 page_number=current_page,
                             )
                         )
             
-            # 섹션 구분 표시
+            # Section break indicator
             if section_idx > 1:
-                current_page = section_idx  # 섹션 변경 시 페이지 증가
+                current_page = section_idx  # Increase page on section change
                 text_contents.append(
                     TextContent(
-                        text=f"--- 섹션 {section_idx} ---",
+                        text=f"--- Section {section_idx} ---",
                         level=0,
                         style="SectionBreak",
                         page_number=current_page,
                     )
                 )
         
-        # 본문 단락 추출 (위치 정보 포함)
+        # Extract body paragraphs (with position info)
         position = 0
-        current_page = 1  # 페이지 초기화
+        current_page = 1  # Initialize page
         
         for element in doc.element.body:
             if isinstance(element, CT_P):
                 para = Paragraph(element, doc)
                 
-                # 페이지 브레이크 확인 (텍스트가 없어도 체크)
+                # Page break confirmation (check even if no text)
                 has_page_break = False
                 try:
                     page_breaks = para._element.findall('.//' + qn('w:br'))
                     for br in page_breaks:
                         if br.get(qn('w:type')) == 'page':
                             current_page += 1
-                            position += 2000  # 페이지 브레이크 후 위치 증가
+                            position += 2000  # Increase position after page break
                             has_page_break = True
                             break
                 except:
@@ -203,12 +203,12 @@ class DocxParser(BaseParser):
                 if has_page_break:
                     continue
                 
-                # 빈 단락도 position 증가 (이미지 전용 단락 때문)
+                # Empty paragraphs also increase position (for image-only paragraphs)
                 if not para.text.strip():
                     position += 1000
                     continue
                 
-                # 스타일에서 제목 레벨 판단
+                # Determine heading level from style
                 level = 0
                 style_name = para.style.name if para.style else ""
                 
@@ -218,7 +218,7 @@ class DocxParser(BaseParser):
                     except (ValueError, IndexError):
                         level = 1
                 
-                # Drawing 객체(텍스트 박스, 도형) 확인
+                # Check for Drawing objects (text boxes, shapes)
                 has_drawing = False
                 try:
                     if para._element.findall('.//' + qn('w:drawing')):
@@ -227,7 +227,7 @@ class DocxParser(BaseParser):
                 except:
                     pass
                 
-                # 자동 번호 매기기 확인
+                # Check for automatic numbering
                 number_prefix = self._get_paragraph_number(para)
                 text = para.text
                 if number_prefix:
@@ -242,20 +242,20 @@ class DocxParser(BaseParser):
                         position=position,
                     )
                 )
-                position += 1000  # 단락 간 간격
+                position += 1000  # Gap between paragraphs
             
             elif isinstance(element, CT_Tbl):
-                # 테이블은 별도 처리되므로 위치만 증가
+                # Tables are processed separately, just increase position
                 position += 5000
         
-        # 바닥글 추출
+        # Extract footers
         for section_idx, section in enumerate(doc.sections, 1):
             if section.footer:
                 for para in section.footer.paragraphs:
                     if para.text.strip():
                         text_contents.append(
                             TextContent(
-                                text=f"[바닥글] {para.text}",
+                                text=f"[Footer] {para.text}",
                                 level=0,
                                 style="Footer",
                                 page_number=section_idx,
@@ -265,11 +265,11 @@ class DocxParser(BaseParser):
         return text_contents
     
     def _extract_tables(self, doc: DocxDocument) -> List[TableContent]:
-        """테이블 추출 (병합 셀, 중첩 테이블, 셀 이미지 지원)"""
+        """Extract tables (merged cells, nested tables, cell images supported)"""
         tables = []
         current_page = 1
         
-        # 페이지 브레이크 추적을 위해 전체 문서 순회
+        # Traverse entire document to track page breaks
         table_page_map = {}  # {table_idx: page_number}
         table_idx = 0
         
@@ -277,7 +277,7 @@ class DocxParser(BaseParser):
             if isinstance(element, CT_P):
                 para = Paragraph(element, doc)
                 
-                # 페이지 브레이크 확인
+                # Page break confirmation
                 try:
                     page_breaks = para._element.findall('.//' + qn('w:br'))
                     for br in page_breaks:
@@ -295,13 +295,13 @@ class DocxParser(BaseParser):
             if not table.rows:
                 continue
             
-            # 첫 번째 행을 헤더로 간주
+            # First row is considered header
             headers = []
             header_merges = []
             for col_idx, cell in enumerate(table.rows[0].cells):
                 headers.append(cell.text.strip().replace('\n', '<br>'))
                 
-                # 헤더의 colspan 추출
+                # Extract header colspan
                 try:
                     tc = cell._element
                     tcPr = tc.find(qn('w:tcPr'))
@@ -320,13 +320,13 @@ class DocxParser(BaseParser):
                 except:
                     pass
             
-            # 나머지 행을 데이터로 추출
+            # Extract remaining rows as data
             rows = []
             cell_images = []
             cell_merges = header_merges.copy()
-            seen_image_ids = set()  # 중복 이미지 방지
+            seen_image_ids = set()  # Prevent duplicate images
             
-            # 1단계: 모든 행 데이터와 colspan 수집
+            # Step 1: Collect all row data and colspan
             all_rows_data = []
             all_colspan_data = {}  # {(row, col): colspan}
             all_vmerge_data = {}  # {(row, col): 'restart' or 'continue'}
@@ -337,7 +337,7 @@ class DocxParser(BaseParser):
                     cell_text = cell.text.strip().replace('\n', '<br>')
                     row_data.append(cell_text)
                     
-                    # 셀 속성 수집
+                    # Collect cell properties
                     try:
                         tc = cell._element
                         tcPr = tc.find(qn('w:tcPr'))
@@ -362,35 +362,35 @@ class DocxParser(BaseParser):
                 
                 all_rows_data.append(row_data)
             
-            # 2단계: vMerge 정보로 rowspan 계산
+            # Step 2: Calculate rowspan from vMerge info
             vmerge_spans = {}  # {(start_row, col): rowspan}
             for col_idx in range(len(table.rows[0].cells)):
                 current_start = None
                 for row_idx in range(1, len(table.rows)):
                     if (row_idx, col_idx) in all_vmerge_data:
                         if all_vmerge_data[(row_idx, col_idx)] == 'restart':
-                            # 이전 병합 종료 및 새로운 시작
+                            # Previous merge ends, new one starts
                             if current_start is not None:
                                 span = row_idx - current_start
                                 if span > 1:
                                     vmerge_spans[(current_start, col_idx)] = span
                             current_start = row_idx
-                        # 'continue'인 경우는 계속
+                        # 'continue' case continues
                     else:
-                        # vMerge 없음 - 이전 병합 종료
+                        # No vMerge - end previous merge
                         if current_start is not None:
                             span = row_idx - current_start
                             if span > 1:
                                 vmerge_spans[(current_start, col_idx)] = span
                             current_start = None
                 
-                # 마지막까지 병합 중이면 종료
+                # End merge if still in progress at the end
                 if current_start is not None:
                     span = len(table.rows) - current_start
                     if span > 1:
                         vmerge_spans[(current_start, col_idx)] = span
             
-            # 3단계: CellMerge 객체 생성
+            # Step 3: Create CellMerge objects
             for (row, col), colspan in all_colspan_data.items():
                 cell_merges.append(CellMerge(
                     row=row,
@@ -401,7 +401,7 @@ class DocxParser(BaseParser):
                 ))
             
             for (row, col), rowspan in vmerge_spans.items():
-                # 해당 셀에 이미 colspan이 있는지 확인
+                # Check if this cell already has colspan
                 existing = None
                 for merge in cell_merges:
                     if merge.row == row and merge.col == col:
@@ -419,7 +419,7 @@ class DocxParser(BaseParser):
                         is_merged=False
                     ))
             
-            # 병합된 셀의 일부 표시
+            # Mark parts of merged cells
             for (row, col), status in all_vmerge_data.items():
                 if status == 'continue':
                     cell_merges.append(CellMerge(
@@ -430,7 +430,7 @@ class DocxParser(BaseParser):
                         is_merged=True
                     ))
             
-            # 4단계: 셀 이미지 추출
+            # Step 4: Extract cell images
             rows = all_rows_data
             for row_idx, row in enumerate(table.rows[1:], start=1):
                 for col_idx, cell in enumerate(row.cells):
@@ -438,21 +438,20 @@ class DocxParser(BaseParser):
                         for para in cell.paragraphs:
                             for run in para.runs:
                                 if hasattr(run, '_element'):
-                                    # qn() 함수 사용
-                                    drawings = run._element.findall('.//' + qn('w:drawing'))
+                                        # Using qn() function
                                     
                                     for drawing in drawings:
-                                        # 이미지 추출 시도
+                                        # Try to extract image
                                         try:
                                             blips = drawing.findall('.//' + qn('a:blip'))
                                             
-                                            # 모든 고유 blip을 추출 (중복 제거)
+                                            # Extract all unique blips (remove duplicates)
                                             for blip in blips:
                                                 embed_id = blip.get(qn('r:embed'))
                                                 if embed_id and embed_id not in seen_image_ids:
                                                     seen_image_ids.add(embed_id)
                                                     try:
-                                                        # document part를 통해 관계 찾기
+                                                        # Find relationship through document part
                                                         image_part = doc.part.rels[embed_id].target_part
                                                         cell_images.append(
                                                             CellImage(
@@ -468,10 +467,10 @@ class DocxParser(BaseParser):
                                                     except KeyError:
                                                         pass
                                         except Exception as e:
-                                            logger.debug(f"테이블 셀 이미지 추출 실패: {e}")
+                                            logger.debug(f"Failed to extract table cell image: {e}")
                                             continue
                     except Exception as e:
-                        logger.debug(f"테이블 셀 처리 중 오류: {e}")
+                        logger.debug(f"Error processing table cell: {e}")
                         pass
             
             tables.append(
@@ -487,23 +486,23 @@ class DocxParser(BaseParser):
         return tables
     
     def _extract_images(self, doc: DocxDocument) -> List[ImageContent]:
-        """이미지 추출 (Drawing 객체, 플로팅 이미지 포함)"""
+        """Extract images (including Drawing objects, floating images)"""
         images = []
         position = 0
         current_page = 1
         
-        # 관계(relationships)를 통한 이미지 접근
+        # Access images through relationships
         image_rels = {}
         for rel_id, rel in doc.part.rels.items():
             if "image" in rel.target_ref:
                 image_rels[rel_id] = rel.target_part
         
-        # 본문의 모든 Drawing 객체 탐색
+        # Traverse all Drawing objects in document body
         for element in doc.element.body:
             if isinstance(element, CT_P):
                 para = Paragraph(element, doc)
                 
-                # 페이지 브레이크 확인
+                # Page break confirmation
                 has_page_break = False
                 try:
                     page_breaks = para._element.findall('.//' + qn('w:br'))
@@ -519,11 +518,11 @@ class DocxParser(BaseParser):
                 if has_page_break:
                     continue
                 
-                # 단락 내 Drawing 검색
+                # Search for Drawings within paragraph
                 for run in para.runs:
                     try:
                         if hasattr(run, '_element'):
-                            # Inline 이미지 - qn() 함수 사용
+                            # Inline images - use qn() function
                             drawings = run._element.findall('.//' + qn('w:drawing'))
                             
                             for drawing in drawings:
@@ -535,7 +534,7 @@ class DocxParser(BaseParser):
                                         try:
                                             image_part = image_rels[embed_id]
                                             
-                                            # 이미지 크기 추출 시도
+                                            # Try to extract image dimensions
                                             width = 0
                                             height = 0
                                             extents = drawing.findall('.//' + qn('wp:extent'))
@@ -554,10 +553,10 @@ class DocxParser(BaseParser):
                                                 )
                                             )
                                         except Exception as e:
-                                            logger.warning(f"이미지 추출 실패: {e}")
+                                            logger.warning(f"Failed to extract image: {e}")
                                             continue
                     except Exception as e:
-                        logger.debug(f"Drawing 처리 중 오류: {e}")
+                        logger.debug(f"Error processing Drawing: {e}")
                         pass
                 
                 position += 1000

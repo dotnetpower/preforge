@@ -1,4 +1,4 @@
-"""Parsers 모듈"""
+"""Parsers module"""
 from .docx_parser import DocxParser
 from .pptx_parser import PptxParser
 from .pdf_parser import PdfParser

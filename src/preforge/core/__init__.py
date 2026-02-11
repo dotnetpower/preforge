@@ -1,4 +1,4 @@
-"""Core 모듈"""
+"""Core module"""
 from .document import Document, DocumentType, DocumentMetadata, TextContent, TableContent, ImageContent
 from .parser import BaseParser
 from .extractor import BaseExtractor, TextExtractor, TableExtractor, ImageExtractor, MetadataExtractor
